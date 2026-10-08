@@ -1,0 +1,7 @@
+# File sistem operasi
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Pengaturan pribadi VS Code (launch.json & extensions.json tetap ikut di-commit)
+.vscode/settings.json

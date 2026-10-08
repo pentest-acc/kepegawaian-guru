@@ -1,1 +1,215 @@
-# kepegawaian-guru
+# Sistem Informasi Kepegawaian Guru
+### Yayasan Tiara Harapan Jaya (KB / TK / SD)
+
+Aplikasi kepegawaian guru berbasis **Flutter** (bisa dijalankan di **Android** dan **web/Chrome**) dengan backend **PHP + MySQL** (XAMPP).
+Proyek tugas kelompok mata kuliah Manajemen Proyek Perangkat Lunak (MPPL), Universitas Bina Sarana Informatika.
+
+---
+
+## Progres pengembangan
+
+Dikerjakan bertahap, mulai dari dasar seperti programmer pada umumnya.
+
+| Sesi | Isi | Status |
+|---|---|---|
+| **1** | Fondasi proyek, rancangan database lengkap, API login/register, animasi splash & loading, Login, Register, Beranda Guru | ✅ Selesai |
+| 2 | Info Kegiatan (daftar, cari, tandai penting, unduh lampiran) | ⏳ Berikutnya |
+| 3 | Jadwal Mengajar (tab Senin–Jumat) | ⏳ |
+| 4 | Absen (foto + GPS, jam masuk/pulang) | ⏳ |
+| 5 | Riwayat Absen (rekap per bulan, jam kerja) | ⏳ |
+| 6 | Cuti / Izin (pengajuan, sisa kuota, status) | ⏳ |
+| 7 | Pengaturan & Profil | ⏳ |
+| 8+ | Halaman Admin: dashboard, data guru, kelola info & jadwal, monitoring absensi, persetujuan cuti, laporan PDF/Excel, pengaturan sistem | ⏳ |
+
+### Yang sudah bisa dicoba (Sesi 1)
+
+- **Splash screen** dengan animasi logo + animasi loading titik memantul, sekaligus cek otomatis apakah masih login.
+- **Login** memakai email **atau** Nomor Induk Yayasan (NIY), tombol lihat/sembunyikan kata sandi, overlay loading.
+- **Register** akun guru dengan validasi lengkap (nama, NIY, email, no. HP, unit, jenis kelamin, kata sandi).
+- **Beranda Guru** sesuai desain: header foto sekolah + logo, foto profil, kartu identitas hijau (Nama, NIY, Jabatan), banner Informasi Akademik, dan 7 menu.
+- **Logout**, dan sesi tetap tersimpan (tidak perlu login ulang setiap membuka aplikasi).
+- Login sebagai **admin** masuk ke halaman Dashboard Admin sementara.
+- Menu yang belum dibuat membuka halaman "Sedang dalam tahap pengembangan".
+
+---
+
+## Struktur folder
+
+```
+kepegawaian-guru/
+├── aplikasi/     -> aplikasi Flutter (Android + Web)
+│   ├── lib/
+│   │   ├── config/     (alamat API, warna, tema, daftar halaman)
+│   │   ├── models/     (bentuk data, mis. Pengguna)
+│   │   ├── services/   (komunikasi ke API & penyimpanan sesi)
+│   │   ├── screens/    (halaman: splash, login, register, beranda, ...)
+│   │   ├── widgets/    (komponen yang dipakai ulang: tombol, input, loading)
+│   │   └── utils/      (validasi form, pesan snackbar)
+│   ├── assets/   (font Poppins & gambar)
+│   └── test/     (unit test & widget test)
+├── backend/      -> API PHP (lihat backend/README.md)
+├── database/     -> file SQL + ERD & Kamus Data (lihat database/README.md)
+└── .vscode/      -> konfigurasi tombol Run (F5) di VS Code
+```
+
+---
+
+## 1. Persiapan (cukup sekali)
+
+Pasang aplikasi berikut di laptop (Windows):
+
+1. **Git** — <https://git-scm.com/download/win>
+2. **XAMPP** (Apache + MySQL + PHP 7.4 ke atas) — <https://www.apachefriends.org>
+3. **Flutter SDK** versi **3.41 atau lebih baru** (disarankan versi stable terbaru) — ikuti panduan <https://docs.flutter.dev/get-started/install/windows>
+4. **Android Studio** — dibutuhkan untuk Android SDK (agar bisa menjalankan di HP).
+5. **VS Code** + ekstensi **Flutter** dan **Dart** (VS Code akan menyarankannya otomatis saat folder proyek dibuka).
+
+Cek instalasi Flutter di terminal VS Code (`Ctrl + ~`):
+
+```bash
+flutter --version
+flutter doctor
+```
+
+Pastikan `flutter doctor` tidak menunjukkan tanda ❌ pada bagian Flutter, Android toolchain, dan Chrome.
+
+---
+
+## 2. Mengambil proyek dari GitHub (pertama kali)
+
+Proyek diletakkan di dalam folder `htdocs` XAMPP supaya backend PHP langsung bisa diakses Apache.
+Buka VS Code → **Terminal → New Terminal**, lalu jalankan:
+
+```bash
+cd C:\xampp\htdocs
+git clone https://github.com/pentest-acc/kepegawaian-guru.git
+cd kepegawaian-guru
+git checkout claude/awesome-davinci-1kahjv
+code .
+```
+
+> - Jika diminta login GitHub, login dengan akun pemilik repository.
+> - Perintah `git checkout claude/awesome-davinci-1kahjv` memindahkan kamu ke branch hasil Sesi 1. Jika branch ini sudah digabung (*merge*) ke `main`, cukup tetap di `main`.
+> - `code .` membuka folder proyek di VS Code (atau buka manual: **File → Open Folder** → `C:\xampp\htdocs\kepegawaian-guru`).
+
+Lalu unduh paket-paket Flutter:
+
+```bash
+cd aplikasi
+flutter pub get
+```
+
+## 3. Menyiapkan database
+
+1. Buka **XAMPP Control Panel**, klik **Start** pada **Apache** dan **MySQL**.
+2. Buka <http://localhost/phpmyadmin>.
+3. Klik tab **Import** → **Choose File** → pilih `C:\xampp\htdocs\kepegawaian-guru\database\db_kepegawaian_guru.sql` → klik **Import** (di bagian bawah).
+4. Database `db_kepegawaian_guru` beserta 9 tabel dan data contoh akan muncul di panel kiri.
+
+Cek backend: buka <http://localhost/kepegawaian-guru/backend/api/> di browser. Jika tampil tulisan seperti ini, backend sudah siap:
+
+```json
+{"sukses":true,"pesan":"API Kepegawaian Guru berjalan dengan baik.", ...}
+```
+
+## 4. Menjalankan aplikasi di Chrome (paling mudah)
+
+Dari folder `aplikasi`:
+
+```bash
+flutter run -d chrome
+```
+
+Atau di VS Code tekan **F5** → pilih **"Aplikasi - Chrome (web)"**.
+
+## 5. Menjalankan aplikasi di HP Android
+
+1. **Sambungkan HP dan laptop ke Wi-Fi yang sama.**
+2. Cari IP laptop: buka CMD/terminal, ketik `ipconfig`, lihat **IPv4 Address** di bagian Wi-Fi (contoh `192.168.1.7`).
+3. Buka file `aplikasi/lib/config/api_config.dart`, ganti nilai `ipLaptop`:
+   ```dart
+   static const String ipLaptop = '192.168.1.7';
+   ```
+4. Tes dulu dari **browser HP**: buka `http://192.168.1.7/kepegawaian-guru/backend/api/`.
+   Jika JSON-nya tampil, HP sudah bisa menghubungi laptop. Jika tidak, izinkan **Apache** di Windows Firewall (lihat Troubleshooting).
+5. Aktifkan **Opsi Pengembang** di HP (Pengaturan → Tentang ponsel → ketuk **Nomor versi/Build number** 7×), lalu nyalakan **Debugging USB**.
+6. Colok HP ke laptop dengan kabel USB, izinkan debugging di HP, lalu jalankan:
+   ```bash
+   flutter devices
+   flutter run
+   ```
+   Atau tekan **F5** di VS Code → **"Aplikasi - HP Android / perangkat terpilih"** (pilih HP di pojok kanan bawah VS Code).
+
+Membuat file APK untuk dipasang/dibagikan:
+
+```bash
+flutter build apk --release
+```
+
+File APK ada di `aplikasi/build/app/outputs/flutter-apk/app-release.apk`.
+
+## 6. Akun demo
+
+| Role | Login (Email atau NIY) | Kata sandi |
+|---|---|---|
+| Guru | `guru@contoh.test` atau `12345678910` | `guru123` |
+| Admin | `admin@contoh.test` atau `ADM001` | `admin123` |
+
+Bisa juga membuat akun guru sendiri lewat tombol **Daftar di sini** di halaman login.
+
+---
+
+## 7. Mengambil pembaruan dari sesi berikutnya
+
+Setiap sesi baru selesai, ambil kode terbarunya dari terminal VS Code:
+
+```bash
+cd C:\xampp\htdocs\kepegawaian-guru
+git fetch origin
+git checkout <nama-branch-yang-diberitahukan>
+git pull
+cd aplikasi
+flutter pub get
+```
+
+Jika semua hasil sesi sudah digabung ke `main`, cukup:
+
+```bash
+git checkout main
+git pull
+```
+
+> Jika sesi berikutnya mengubah database, akan ada file SQL tambahan + petunjuknya. Jangan import ulang `db_kepegawaian_guru.sql` kalau database sudah berisi data asli, karena file itu menghapus tabel lama.
+
+---
+
+## Gambar Yayasan (logo & foto header)
+
+Taruh file asli di `aplikasi/assets/images/`:
+
+- `logo_yayasan.png` — logo Yayasan (persegi, latar transparan)
+- `header_sekolah.jpg` — foto gedung sekolah untuk header Beranda
+
+Selama file belum ada, aplikasi memakai ikon dan latar gradasi pengganti. Setelah menambahkan gambar, **stop** aplikasi lalu jalankan ulang (`flutter run`).
+
+## Menjalankan test
+
+```bash
+cd aplikasi
+flutter analyze
+flutter test
+```
+
+---
+
+## Troubleshooting
+
+| Masalah | Solusi |
+|---|---|
+| "Tidak dapat terhubung ke server" | Pastikan Apache & MySQL di XAMPP menyala. Di HP: cek `ipLaptop` di `api_config.dart` dan HP satu Wi-Fi dengan laptop. |
+| Browser HP tidak bisa membuka `http://IP-laptop/...` | Windows Firewall memblokir Apache. Buka **Windows Defender Firewall → Allow an app** → centang **Apache HTTP Server** untuk jaringan **Private**. Pastikan jaringan Wi-Fi di Windows diset sebagai *Private*. |
+| "Gagal terhubung ke database" | MySQL belum Start, atau database belum di-import (langkah 3). |
+| Setiap aplikasi dibuka ulang selalu kembali ke halaman Login | Apache membuang header token. Pastikan file `backend/.htaccess` ikut ter-clone (file tersembunyi) dan `mod_rewrite` aktif di XAMPP (default sudah aktif). |
+| Port 80 dipakai aplikasi lain (Apache tidak mau Start) | Matikan aplikasi yang memakai port 80 (mis. Skype/IIS), atau ubah port Apache lalu sesuaikan alamat di `api_config.dart`. |
+| `flutter pub get` gagal karena versi SDK | Perbarui Flutter: `flutter upgrade`. |
+| Folder proyek bukan `kepegawaian-guru` | Ubah `folderProyek` di `aplikasi/lib/config/api_config.dart`. |

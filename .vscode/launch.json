@@ -1,0 +1,21 @@
+{
+  // Tekan F5 di VS Code lalu pilih salah satu konfigurasi di bawah.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Aplikasi - Chrome (web)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "aplikasi",
+      "program": "lib/main.dart",
+      "deviceId": "chrome"
+    },
+    {
+      "name": "Aplikasi - HP Android / perangkat terpilih",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "aplikasi",
+      "program": "lib/main.dart"
+    }
+  ]
+}

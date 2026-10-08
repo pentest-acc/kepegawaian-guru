@@ -1,0 +1,10 @@
+Letakkan gambar asli Yayasan di folder ini dengan nama PERSIS seperti berikut:
+
+  logo_yayasan.png   -> logo Yayasan Tiara Harapan Jaya (disarankan persegi, min. 512x512 px, latar transparan)
+  header_sekolah.jpg -> foto gedung sekolah / foto bersama untuk header Beranda (disarankan min. 1080x600 px)
+
+Selama file di atas belum ada, aplikasi otomatis memakai tampilan pengganti
+(ikon sekolah dan latar gradasi), jadi aplikasi tetap bisa dijalankan.
+
+Setelah menambah/mengganti gambar, hentikan aplikasi lalu jalankan ulang
+(flutter run), karena gambar baru tidak terbaca lewat hot reload.

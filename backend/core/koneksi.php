@@ -25,7 +25,7 @@ function db()
             kirim_json(
                 500,
                 false,
-                'Gagal terhubung ke database. Pastikan MySQL di XAMPP sudah berjalan '
+                'Gagal terhubung ke database. Pastikan MySQL di Laragon sudah berjalan '
                 . 'dan database "' . $c['database'] . '" sudah di-import.'
             );
         }

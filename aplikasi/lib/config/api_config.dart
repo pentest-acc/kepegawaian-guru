@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// Pengaturan alamat backend API (folder `backend/api` di XAMPP).
+/// Pengaturan alamat backend API (folder `backend/api` di Laragon).
 ///
 /// Cara aplikasi menentukan alamat server:
 /// - Dijalankan di Chrome (web)  -> memakai alamat yang sama dengan halaman
@@ -16,7 +16,8 @@ class ApiConfig {
   /// pada bagian Wi-Fi (contoh: 192.168.1.7).
   static const String ipLaptop = '192.168.1.10';
 
-  /// Nama folder proyek di dalam `C:\xampp\htdocs`.
+  /// Nama folder proyek di dalam `C:\laragon\www`
+  /// (atau `C:\xampp\htdocs` jika memakai XAMPP).
   static const String folderProyek = 'kepegawaian-guru';
 
   /// Alamat API bisa juga ditentukan langsung saat menjalankan aplikasi:

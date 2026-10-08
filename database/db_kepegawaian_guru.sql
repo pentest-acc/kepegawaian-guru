@@ -2,13 +2,16 @@
 --  DATABASE  : db_kepegawaian_guru
 --  PROJECT   : Sistem Informasi Kepegawaian Guru
 --              Yayasan Tiara Harapan Jaya (KB / TK / SD)
---  DBMS      : MySQL 5.7+ / MariaDB 10.3+ (bisa langsung di XAMPP)
+--  DBMS      : MySQL 5.7+ / MariaDB 10.3+ (Laragon atau XAMPP)
 --
---  Cara import (XAMPP):
---    1. Jalankan Apache & MySQL dari XAMPP Control Panel.
---    2. Buka http://localhost/phpmyadmin
---    3. Klik menu "Import" -> pilih file ini -> klik "Import".
---       (Database db_kepegawaian_guru otomatis dibuat oleh file ini.)
+--  Cara import (Laragon):
+--    1. Buka Laragon -> klik "Start All".
+--    2. Klik tombol "Database" -> HeidiSQL terbuka -> klik "Open".
+--    3. Menu File -> "Run SQL file..." -> pilih file ini.
+--    Atau lewat Terminal Laragon:
+--       mysql -u root -e "source database/db_kepegawaian_guru.sql"
+--  (XAMPP: phpMyAdmin -> menu "Import" -> pilih file ini -> "Import".)
+--  Database db_kepegawaian_guru otomatis dibuat oleh file ini.
 --
 --  PERHATIAN: file ini menghapus (DROP) tabel lama lalu membuat ulang.
 --             Jangan import ulang jika sudah berisi data asli!
@@ -54,7 +57,7 @@ CREATE TABLE pengguna (
   tanggal_lahir     DATE             NULL,
   alamat            TEXT             NULL,
   foto              VARCHAR(255)     NULL COMMENT 'Path file foto profil',
-  notifikasi_aktif  TINYINT(1)       NOT NULL DEFAULT 1,
+  notifikasi_aktif  BOOLEAN          NOT NULL DEFAULT 1,
   status            ENUM('aktif','nonaktif') NOT NULL DEFAULT 'aktif',
   dibuat_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
   diubah_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

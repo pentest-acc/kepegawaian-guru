@@ -1,6 +1,6 @@
 # Database `db_kepegawaian_guru`
 
-File SQL: [`db_kepegawaian_guru.sql`](db_kepegawaian_guru.sql). Bisa langsung di-import lewat phpMyAdmin di XAMPP (MySQL/MariaDB).
+File SQL: [`db_kepegawaian_guru.sql`](db_kepegawaian_guru.sql). Bisa langsung di-import lewat HeidiSQL di Laragon (atau phpMyAdmin di XAMPP). Sudah diuji di MySQL 8.0 dan MariaDB 10.11.
 
 > Struktur database dirancang lengkap dari awal sesuai Project Charter, jadi semua tabel sudah ada walaupun fiturnya dibuat bertahap.
 > Bagian ini juga bisa dipakai sebagai bahan **ERD** dan **Kamus Data** untuk tugas analisa & desain sistem.
@@ -112,7 +112,7 @@ Keterangan: **PK** = Primary Key, **FK** = Foreign Key, **UK** = Unique Key.
 | jenis_kelamin | ENUM('L','P') | Laki-laki / Perempuan |
 | tempat_lahir, tanggal_lahir, alamat | VARCHAR / DATE / TEXT | Biodata (diisi di menu Profil) |
 | foto | VARCHAR(255) | Lokasi file foto profil |
-| notifikasi_aktif | TINYINT(1) | Pengaturan notifikasi (1 = aktif) |
+| notifikasi_aktif | BOOLEAN (TINYINT(1)) | Pengaturan notifikasi (1 = aktif) |
 | status | ENUM('aktif','nonaktif') | Akun nonaktif tidak bisa login |
 | dibuat_pada, diubah_pada | DATETIME | Waktu data dibuat/diubah |
 

@@ -43,7 +43,7 @@ http.Response responJson(
   );
 }
 
-/// AuthService yang memakai server palsu (tanpa XAMPP).
+/// AuthService yang memakai server palsu (tanpa Laragon).
 AuthService buatAuthPalsu(
   Future<http.Response> Function(http.Request request) server, {
   SessionService? sesi,

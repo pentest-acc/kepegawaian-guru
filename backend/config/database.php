@@ -2,8 +2,8 @@
 /**
  * Konfigurasi koneksi database MySQL.
  *
- * Nilai default di bawah ini sudah cocok untuk XAMPP
- * (user "root" tanpa kata sandi). Saat aplikasi dipindah ke hosting,
+ * Nilai default di bawah ini sudah cocok untuk Laragon maupun XAMPP
+ * (user "root" tanpa kata sandi, port 3306). Saat aplikasi dipindah ke hosting,
  * cukup ganti nilai-nilai di file ini.
  */
 return [

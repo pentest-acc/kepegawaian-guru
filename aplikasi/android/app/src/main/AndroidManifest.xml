@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <!-- usesCleartextTraffic="true" mengizinkan koneksi http:// (tanpa https)
-         ke XAMPP di laptop. Jika backend sudah di hosting dengan https,
+         ke Laragon di laptop. Jika backend sudah di hosting dengan https,
          baris ini boleh dihapus. -->
     <application
         android:label="Kepegawaian Guru"

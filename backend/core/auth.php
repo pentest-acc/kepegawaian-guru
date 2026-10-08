@@ -34,7 +34,7 @@ function buat_token($idPengguna, $perangkat)
 
 /**
  * Ambil token dari header "Authorization: Bearer <token>".
- * Apache di XAMPP kadang membuang header Authorization, jadi dicek dari
+ * Apache (Laragon/XAMPP) kadang membuang header Authorization, jadi dicek dari
  * beberapa tempat sekaligus.
  */
 function ambil_token_request()

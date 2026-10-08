@@ -6,7 +6,7 @@ API sederhana tanpa framework: **satu file PHP = satu endpoint**. Aplikasi Flutt
 
 ```
 backend/
-├── .htaccess          # meneruskan header Authorization ke PHP (penting di XAMPP)
+├── .htaccess          # meneruskan header Authorization ke PHP (Apache Laragon/XAMPP)
 ├── config/
 │   ├── app.php        # zona waktu, masa berlaku token, tampilkan error
 │   └── database.php   # host, nama database, user, password MySQL
@@ -36,7 +36,7 @@ Jika gagal, `sukses` bernilai `false`, `pesan` berisi alasan yang siap ditampilk
 
 ## Daftar endpoint (Sesi 1)
 
-Alamat dasar (XAMPP): `http://localhost/kepegawaian-guru/backend/api`
+Alamat dasar (Laragon/XAMPP): `http://localhost/kepegawaian-guru/backend/api`
 
 | Method | Endpoint | Login? | Keterangan |
 |---|---|---|---|

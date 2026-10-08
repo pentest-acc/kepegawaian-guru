@@ -1,4 +1,4 @@
-# Apache di XAMPP terkadang membuang header "Authorization".
+# Apache (Laragon/XAMPP) terkadang membuang header "Authorization".
 # Baris di bawah ini meneruskannya ke PHP agar token login bisa dibaca.
 <IfModule mod_rewrite.c>
     RewriteEngine On

@@ -73,7 +73,7 @@ class ApiService {
       );
     } on http.ClientException {
       throw ApiException(
-        'Tidak dapat terhubung ke server. Pastikan Apache & MySQL di XAMPP '
+        'Tidak dapat terhubung ke server. Pastikan Laragon (Apache & MySQL) '
         'sudah menyala dan alamat API sudah benar.',
       );
     }

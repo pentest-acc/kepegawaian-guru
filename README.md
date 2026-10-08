@@ -1,7 +1,7 @@
 # Sistem Informasi Kepegawaian Guru
 ### Yayasan Tiara Harapan Jaya (KB / TK / SD)
 
-Aplikasi kepegawaian guru berbasis **Flutter** (bisa dijalankan di **Android** dan **web/Chrome**) dengan backend **PHP + MySQL** (XAMPP).
+Aplikasi kepegawaian guru berbasis **Flutter** (bisa dijalankan di **Android** dan **web/Chrome**) dengan backend **PHP + MySQL** yang dijalankan memakai **Laragon** (XAMPP juga bisa).
 Proyek tugas kelompok mata kuliah Manajemen Proyek Perangkat Lunak (MPPL), Universitas Bina Sarana Informatika.
 
 ---
@@ -58,8 +58,8 @@ kepegawaian-guru/
 
 Pasang aplikasi berikut di laptop (Windows):
 
-1. **Git** — <https://git-scm.com/download/win>
-2. **XAMPP** (Apache + MySQL + PHP 7.4 ke atas) — <https://www.apachefriends.org>
+1. **Laragon** (berisi Apache + MySQL + PHP + HeidiSQL) — <https://laragon.org/download>
+2. **Git** — <https://git-scm.com/download/win>
 3. **Flutter SDK** versi **3.41 atau lebih baru** (disarankan versi stable terbaru) — ikuti panduan <https://docs.flutter.dev/get-started/install/windows>
 4. **Android Studio** — dibutuhkan untuk Android SDK (agar bisa menjalankan di HP).
 5. **VS Code** + ekstensi **Flutter** dan **Dart** (VS Code akan menyarankannya otomatis saat folder proyek dibuka).
@@ -73,24 +73,27 @@ flutter doctor
 
 Pastikan `flutter doctor` tidak menunjukkan tanda ❌ pada bagian Flutter, Android toolchain, dan Chrome.
 
+> **Pengaturan Laragon yang dipakai proyek ini** (semuanya bawaan Laragon, tidak perlu diubah):
+> web server **Apache**, MySQL port **3306**, user **root** tanpa kata sandi.
+> Jika kamu pernah memberi kata sandi pada user root MySQL, isi kata sandinya di `backend/config/database.php`.
+
 ---
 
 ## 2. Mengambil proyek dari GitHub (pertama kali)
 
-Proyek diletakkan di dalam folder `htdocs` XAMPP supaya backend PHP langsung bisa diakses Apache.
+Proyek diletakkan di folder `www` milik Laragon supaya backend PHP langsung bisa diakses Apache.
 Buka VS Code → **Terminal → New Terminal**, lalu jalankan:
 
 ```bash
-cd C:\xampp\htdocs
+cd C:\laragon\www
 git clone https://github.com/pentest-acc/kepegawaian-guru.git
 cd kepegawaian-guru
-git checkout claude/awesome-davinci-1kahjv
 code .
 ```
 
 > - Jika diminta login GitHub, login dengan akun pemilik repository.
-> - Perintah `git checkout claude/awesome-davinci-1kahjv` memindahkan kamu ke branch hasil Sesi 1. Jika branch ini sudah digabung (*merge*) ke `main`, cukup tetap di `main`.
-> - `code .` membuka folder proyek di VS Code (atau buka manual: **File → Open Folder** → `C:\xampp\htdocs\kepegawaian-guru`).
+> - `code .` membuka folder proyek di VS Code (atau buka manual: **File → Open Folder** → `C:\laragon\www\kepegawaian-guru`).
+> - Lokasi folder `www` bisa dicek lewat tombol **Root** di Laragon. Jika Laragon dipasang di drive lain (mis. `D:\laragon`), sesuaikan perintah `cd`-nya.
 
 Lalu unduh paket-paket Flutter:
 
@@ -99,18 +102,35 @@ cd aplikasi
 flutter pub get
 ```
 
-## 3. Menyiapkan database
+## 3. Menyalakan Laragon & menyiapkan database
 
-1. Buka **XAMPP Control Panel**, klik **Start** pada **Apache** dan **MySQL**.
-2. Buka <http://localhost/phpmyadmin>.
-3. Klik tab **Import** → **Choose File** → pilih `C:\xampp\htdocs\kepegawaian-guru\database\db_kepegawaian_guru.sql` → klik **Import** (di bagian bawah).
-4. Database `db_kepegawaian_guru` beserta 9 tabel dan data contoh akan muncul di panel kiri.
+1. Buka **Laragon**, klik **Start All** (Apache dan MySQL menyala).
+   Jika Windows menampilkan peringatan Firewall untuk Apache/httpd, centang **Private networks** lalu klik **Allow access** (dibutuhkan agar HP bisa terhubung).
+2. Import database, pilih salah satu cara:
 
-Cek backend: buka <http://localhost/kepegawaian-guru/backend/api/> di browser. Jika tampil tulisan seperti ini, backend sudah siap:
+   **Cara A — HeidiSQL (paling mudah)**
+   1. Di Laragon klik tombol **Database** → HeidiSQL terbuka → klik **Open** pada sesi Laragon.
+   2. Menu **File → Run SQL file...** → pilih `C:\laragon\www\kepegawaian-guru\database\db_kepegawaian_guru.sql`.
+   3. Tekan **F5** (refresh) di panel kiri, database `db_kepegawaian_guru` dengan 9 tabel akan muncul.
 
-```json
-{"sukses":true,"pesan":"API Kepegawaian Guru berjalan dengan baik.", ...}
-```
+   **Cara B — Terminal Laragon**
+   Di Laragon klik tombol **Terminal**, lalu ketik:
+
+   ```bash
+   cd C:\laragon\www\kepegawaian-guru
+   mysql -u root -e "source database/db_kepegawaian_guru.sql"
+   ```
+
+   > Perintah `mysql` bisa juga dipakai di terminal VS Code setelah mengaktifkan
+   > **Menu Laragon → Tools → Path → Add Laragon to Path**, lalu tutup & buka lagi VS Code.
+
+3. Cek backend: buka <http://localhost/kepegawaian-guru/backend/api/> di browser. Jika tampil tulisan seperti ini, backend sudah siap:
+
+   ```json
+   {"sukses":true,"pesan":"API Kepegawaian Guru berjalan dengan baik.", ...}
+   ```
+
+   (Laragon juga otomatis membuat alamat cantik <http://kepegawaian-guru.test/backend/api/> setelah Laragon di-*Reload*. Alamat `.test` ini hanya bisa dibuka dari laptop, jadi aplikasi tetap memakai alamat `localhost`/IP laptop.)
 
 ## 4. Menjalankan aplikasi di Chrome (paling mudah)
 
@@ -161,25 +181,21 @@ Bisa juga membuat akun guru sendiri lewat tombol **Daftar di sini** di halaman l
 
 ## 7. Mengambil pembaruan dari sesi berikutnya
 
-Setiap sesi baru selesai, ambil kode terbarunya dari terminal VS Code:
+Setiap sesi selesai, hasilnya dikirim sebagai **Pull Request** ke branch `main`. Setelah Pull Request di-*merge* di GitHub, ambil kode terbarunya dari terminal VS Code:
 
 ```bash
-cd C:\xampp\htdocs\kepegawaian-guru
-git fetch origin
-git checkout <nama-branch-yang-diberitahukan>
+cd C:\laragon\www\kepegawaian-guru
+git checkout main
 git pull
 cd aplikasi
 flutter pub get
 ```
 
-Jika semua hasil sesi sudah digabung ke `main`, cukup:
-
-```bash
-git checkout main
-git pull
-```
-
 > Jika sesi berikutnya mengubah database, akan ada file SQL tambahan + petunjuknya. Jangan import ulang `db_kepegawaian_guru.sql` kalau database sudah berisi data asli, karena file itu menghapus tabel lama.
+
+### Memakai XAMPP (opsional)
+
+Proyek ini juga berjalan di XAMPP tanpa perubahan kode: clone ke `C:\xampp\htdocs` (bukan `C:\laragon\www`), nyalakan Apache & MySQL dari XAMPP Control Panel, lalu import SQL lewat <http://localhost/phpmyadmin> (tab **Import**).
 
 ---
 
@@ -206,10 +222,10 @@ flutter test
 
 | Masalah | Solusi |
 |---|---|
-| "Tidak dapat terhubung ke server" | Pastikan Apache & MySQL di XAMPP menyala. Di HP: cek `ipLaptop` di `api_config.dart` dan HP satu Wi-Fi dengan laptop. |
-| Browser HP tidak bisa membuka `http://IP-laptop/...` | Windows Firewall memblokir Apache. Buka **Windows Defender Firewall → Allow an app** → centang **Apache HTTP Server** untuk jaringan **Private**. Pastikan jaringan Wi-Fi di Windows diset sebagai *Private*. |
-| "Gagal terhubung ke database" | MySQL belum Start, atau database belum di-import (langkah 3). |
-| Setiap aplikasi dibuka ulang selalu kembali ke halaman Login | Apache membuang header token. Pastikan file `backend/.htaccess` ikut ter-clone (file tersembunyi) dan `mod_rewrite` aktif di XAMPP (default sudah aktif). |
-| Port 80 dipakai aplikasi lain (Apache tidak mau Start) | Matikan aplikasi yang memakai port 80 (mis. Skype/IIS), atau ubah port Apache lalu sesuaikan alamat di `api_config.dart`. |
+| "Tidak dapat terhubung ke server" | Pastikan Laragon sudah **Start All**. Di HP: cek `ipLaptop` di `api_config.dart` dan HP satu Wi-Fi dengan laptop. |
+| Browser HP tidak bisa membuka `http://IP-laptop/...` | Windows Firewall memblokir Apache. Buka **Windows Defender Firewall → Allow an app** → centang **Apache HTTP Server** (httpd) untuk jaringan **Private**. Pastikan jaringan Wi-Fi di Windows diset sebagai *Private*. |
+| "Gagal terhubung ke database" | MySQL di Laragon belum menyala, atau database belum di-import (langkah 3). Jika user root MySQL memakai kata sandi, isi di `backend/config/database.php`. |
+| Setiap aplikasi dibuka ulang selalu kembali ke halaman Login | Apache membuang header token. Pastikan file `backend/.htaccess` ikut ter-clone (file tersembunyi) dan Laragon memakai **Apache** (Menu → Preferences → Services & Ports). |
+| Apache tidak mau menyala karena port 80 dipakai | Matikan aplikasi yang memakai port 80 (mis. IIS/Skype), atau ganti port Apache di Laragon (Menu → Preferences → Services & Ports) lalu jalankan aplikasi dengan `flutter run --dart-define=API_URL=http://localhost:PORT/kepegawaian-guru/backend/api`. |
 | `flutter pub get` gagal karena versi SDK | Perbarui Flutter: `flutter upgrade`. |
 | Folder proyek bukan `kepegawaian-guru` | Ubah `folderProyek` di `aplikasi/lib/config/api_config.dart`. |

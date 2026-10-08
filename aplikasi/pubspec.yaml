@@ -1,0 +1,46 @@
+name: kepegawaian_guru
+description: "Aplikasi Sistem Informasi Kepegawaian Guru Yayasan Tiara Harapan Jaya"
+publish_to: 'none'
+
+# versi aplikasi: <versi>+<nomor build>
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  # Komunikasi dengan backend API (PHP)
+  http: ^1.6.0
+  # Menyimpan token & data login di perangkat
+  shared_preferences: ^2.5.6
+  # Format tanggal Bahasa Indonesia
+  intl: ^0.20.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Gambar aplikasi (logo yayasan, foto gedung, dll).
+  # Lihat assets/images/PETUNJUK.txt untuk nama file yang dipakai.
+  assets:
+    - assets/images/
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700

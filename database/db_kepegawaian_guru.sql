@@ -4,14 +4,15 @@
 --              Yayasan Tiara Harapan Jaya (KB / TK / SD)
 --  DBMS      : MySQL 5.7+ / MariaDB 10.3+ (Laragon atau XAMPP)
 --
---  Cara import (Laragon):
---    1. Buka Laragon -> klik "Start All".
---    2. Klik tombol "Database" -> HeidiSQL terbuka -> klik "Open".
---    3. Menu File -> "Run SQL file..." -> pilih file ini.
+--  Cara import (Laragon / XAMPP) lewat phpMyAdmin:
+--    1. Laragon: klik "Start All", lalu klik tombol "Database"
+--       (XAMPP: Start Apache & MySQL, buka http://localhost/phpmyadmin).
+--    2. Login: username root, password dikosongkan.
+--    3. Klik tab "Import" -> "Choose File" -> pilih file ini -> klik "Import".
 --    Atau lewat Terminal Laragon:
 --       mysql -u root -e "source database/db_kepegawaian_guru.sql"
---  (XAMPP: phpMyAdmin -> menu "Import" -> pilih file ini -> "Import".)
---  Database db_kepegawaian_guru otomatis dibuat oleh file ini.
+--  Database db_kepegawaian_guru otomatis dibuat oleh file ini,
+--  jadi tidak perlu membuat/memilih database terlebih dahulu.
 --
 --  PERHATIAN: file ini menghapus (DROP) tabel lama lalu membuat ulang.
 --             Jangan import ulang jika sudah berisi data asli!

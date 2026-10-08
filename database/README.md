@@ -1,6 +1,6 @@
 # Database `db_kepegawaian_guru`
 
-File SQL: [`db_kepegawaian_guru.sql`](db_kepegawaian_guru.sql). Bisa langsung di-import lewat HeidiSQL di Laragon (atau phpMyAdmin di XAMPP). Sudah diuji di MySQL 8.0 dan MariaDB 10.11.
+File SQL: [`db_kepegawaian_guru.sql`](db_kepegawaian_guru.sql). Bisa langsung di-import lewat phpMyAdmin (tombol **Database** di Laragon) — langkah bergambar ada di [README utama](../README.md#3-menyalakan-laragon--menyiapkan-database). Sudah diuji di MySQL 8.0, MariaDB 10.11, dan phpMyAdmin 5.2.
 
 > Struktur database dirancang lengkap dari awal sesuai Project Charter, jadi semua tabel sudah ada walaupun fiturnya dibuat bertahap.
 > Bagian ini juga bisa dipakai sebagai bahan **ERD** dan **Kamus Data** untuk tugas analisa & desain sistem.

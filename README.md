@@ -108,10 +108,36 @@ flutter pub get
    Jika Windows menampilkan peringatan Firewall untuk Apache/httpd, centang **Private networks** lalu klik **Allow access** (dibutuhkan agar HP bisa terhubung).
 2. Import database, pilih salah satu cara:
 
-   **Cara A — HeidiSQL (paling mudah)**
-   1. Di Laragon klik tombol **Database** → HeidiSQL terbuka → klik **Open** pada sesi Laragon.
-   2. Menu **File → Run SQL file...** → pilih `C:\laragon\www\kepegawaian-guru\database\db_kepegawaian_guru.sql`.
-   3. Tekan **F5** (refresh) di panel kiri, database `db_kepegawaian_guru` dengan 9 tabel akan muncul.
+   **Cara A — phpMyAdmin (lewat tombol Database di Laragon)**
+
+   File SQL proyek ini **sudah berisi perintah untuk membuat database-nya sendiri**, jadi kamu **tidak perlu** membuat database baru dulu dan **tidak perlu** memilih database apa pun di panel kiri.
+
+   1. Di Laragon klik tombol **Database**. Browser akan membuka phpMyAdmin.
+      Jika muncul halaman login, isi **Username** `root`, **kosongkan Password**, lalu klik **Log in** (atau **Go**).
+
+      ![Login phpMyAdmin](docs/gambar/import-1-login.png)
+
+   2. Di deretan menu atas, klik tab **Import** (jika phpMyAdmin berbahasa Indonesia: **Impor**).
+
+      ![Tab Import](docs/gambar/import-2-tab-import.png)
+
+   3. Pada bagian **File to import**, klik **Choose File** (atau **Browse** / **Pilih File**), lalu buka file
+      `C:\laragon\www\kepegawaian-guru\database\db_kepegawaian_guru.sql`.
+      Pengaturan lain (Character set `utf-8`, Format `SQL`) biarkan apa adanya.
+
+      ![Pilih file SQL](docs/gambar/import-3-pilih-file.png)
+
+   4. Gulir ke paling bawah, klik tombol **Import** (atau **Go** / **Kirim**).
+
+      ![Klik Import](docs/gambar/import-4-klik-import.png)
+
+   5. Jika berhasil, muncul kotak hijau **"Import has been successfully finished, 29 queries executed"** dan database `db_kepegawaian_guru` muncul di panel kiri (klik untuk melihat 9 tabelnya).
+
+      ![Import berhasil](docs/gambar/import-5-berhasil.png)
+
+   > **Cara cadangan** jika tombol Choose File bermasalah: buka file `database/db_kepegawaian_guru.sql` di VS Code → tekan `Ctrl + A` lalu `Ctrl + C` → di phpMyAdmin klik tab **SQL** → klik kotak teksnya, tekan `Ctrl + V` → klik **Go** (pojok kanan bawah). Hasilnya beberapa kotak hijau, dan `db_kepegawaian_guru` muncul di panel kiri setelah halaman di-refresh (`F5`).
+   >
+   > Laragon versi lama membuka **HeidiSQL** (bukan phpMyAdmin) saat tombol Database diklik. Di HeidiSQL: klik **Open** → menu **File → Run SQL file...** → pilih file SQL di atas → tekan **F5** untuk refresh.
 
    **Cara B — Terminal Laragon**
    Di Laragon klik tombol **Terminal**, lalu ketik:
@@ -224,6 +250,7 @@ flutter test
 |---|---|
 | "Tidak dapat terhubung ke server" | Pastikan Laragon sudah **Start All**. Di HP: cek `ipLaptop` di `api_config.dart` dan HP satu Wi-Fi dengan laptop. |
 | Browser HP tidak bisa membuka `http://IP-laptop/...` | Windows Firewall memblokir Apache. Buka **Windows Defender Firewall → Allow an app** → centang **Apache HTTP Server** (httpd) untuk jaringan **Private**. Pastikan jaringan Wi-Fi di Windows diset sebagai *Private*. |
+| phpMyAdmin menolak login (`#1045 Access denied` atau *"Login without a password is forbidden"*) | Login dengan username `root` dan password kosong. Jika muncul pesan *forbidden*, buka file `config.inc.php` milik phpMyAdmin di Laragon (biasanya `C:\laragon\etc\apps\phpMyAdmin\config.inc.php`) lalu tambahkan baris `$cfg['Servers'][$i]['AllowNoPassword'] = true;`. Jika root MySQL kamu memakai password, isi password itu juga di `backend/config/database.php`. |
 | "Gagal terhubung ke database" | MySQL di Laragon belum menyala, atau database belum di-import (langkah 3). Jika user root MySQL memakai kata sandi, isi di `backend/config/database.php`. |
 | Setiap aplikasi dibuka ulang selalu kembali ke halaman Login | Apache membuang header token. Pastikan file `backend/.htaccess` ikut ter-clone (file tersembunyi) dan Laragon memakai **Apache** (Menu → Preferences → Services & Ports). |
 | Apache tidak mau menyala karena port 80 dipakai | Matikan aplikasi yang memakai port 80 (mis. IIS/Skype), atau ganti port Apache di Laragon (Menu → Preferences → Services & Ports) lalu jalankan aplikasi dengan `flutter run --dart-define=API_URL=http://localhost:PORT/kepegawaian-guru/backend/api`. |

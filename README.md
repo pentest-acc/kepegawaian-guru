@@ -1,7 +1,7 @@
 # Sistem Informasi Kepegawaian Guru
 ### Yayasan Tiara Harapan Jaya (KB / TK / SD)
 
-Aplikasi kepegawaian guru berbasis **Flutter** (bisa dijalankan di **Android** dan **web/Chrome**) dengan backend **PHP + MySQL** yang dijalankan memakai **Laragon** (XAMPP juga bisa).
+Aplikasi kepegawaian guru berbasis **Flutter** (bisa dijalankan di **Android** dan **web/Chrome**) dengan backend **PHP + MySQL** yang dijalankan memakai **Laragon** (XAMPP juga bisa), atau memakai **Docker** agar versinya sama persis di setiap laptop.
 Proyek tugas kelompok mata kuliah Manajemen Proyek Perangkat Lunak (MPPL), Universitas Bina Sarana Informatika.
 
 ---
@@ -14,12 +14,22 @@ Dikerjakan bertahap, mulai dari dasar seperti programmer pada umumnya.
 |---|---|---|
 | **1** | Fondasi proyek, rancangan database lengkap, API login/register, animasi splash & loading, Login, Register, Beranda Guru | ✅ Selesai |
 | **2** | Info Kegiatan (daftar, cari, tandai penting, detail, unduh lampiran), banner info bergulir otomatis di Beranda, logo & foto Yayasan, nama + gelar terpisah, pengamanan login | ✅ Selesai |
-| 3 | Jadwal Mengajar (tab Senin–Jumat) | ⏳ Berikutnya |
-| 4 | Absen (foto + GPS, jam masuk/pulang) | ⏳ |
+| **3** | Jadwal Mengajar dengan **sistem jadwal mingguan** (guru: tab Senin–Jumat + pindah minggu; admin: atur jadwal per guru + cek bentrok), **Docker** | ✅ Selesai |
+| 4 | Absen (foto + GPS, jam masuk/pulang) | ⏳ Berikutnya |
 | 5 | Riwayat Absen (rekap per bulan, jam kerja) | ⏳ |
 | 6 | Cuti / Izin (pengajuan, sisa kuota, status) | ⏳ |
 | 7 | Pengaturan & Profil | ⏳ |
-| 8+ | Halaman Admin: dashboard, data guru, kelola info & jadwal, monitoring absensi, persetujuan cuti, laporan PDF/Excel, pengaturan sistem | ⏳ |
+| 8+ | Halaman Admin: dashboard, data guru, kelola info, monitoring absensi, persetujuan cuti, laporan PDF/Excel, pengaturan sistem (kelola jadwal sudah dibuat di Sesi 3) | ⏳ |
+
+### Yang baru di Sesi 3
+
+- **Sistem jadwal mingguan.** Admin cukup mengatur jadwal **sekali** untuk setiap guru (hari, jam, unit, kelas, mata pelajaran). Jadwal itu otomatis **berulang setiap minggu**, seperti jadwal pelajaran di sekolah atau KRS di kampus. Jika ada perubahan, admin cukup mengubah jadwalnya dan perubahan berlaku untuk minggu-minggu berikutnya.
+- **Jadwal Mengajar (guru)** sesuai desain: tab hari **Senin–Jumat** (tab **Sabtu** muncul jika guru punya jadwal Sabtu), kartu biru tua berisi daftar jam pelajaran, keterangan **Sedang berlangsung**/**Selesai** untuk hari ini, total jam mengajar per hari, serta tombol **‹ ›** untuk melihat jadwal minggu lalu/minggu depan. Tanggal yang ditetapkan sebagai **hari libur** ditandai otomatis.
+- **Kelola Jadwal Mengajar (admin)**: login sebagai admin → **Kelola Jadwal Mengajar** → pilih guru → tambah/ubah/hapus jadwal per hari.
+- **Cek jadwal bentrok otomatis**: sistem menolak jadwal jika guru yang sama sudah mengajar di jam itu, atau kelas yang sama sudah diajar guru lain di jam itu, lengkap dengan pesan penjelasannya.
+- **Docker** (opsional): backend PHP, MySQL, dan phpMyAdmin bisa dijalankan dengan satu perintah dan versinya sama di setiap laptop. Lihat [bagian 8](#8-alternatif-menjalankan-backend-dengan-docker-opsional).
+- Teks bawaan aplikasi (pemilih jam, tombol OK/Batal) kini berbahasa Indonesia.
+- 2 akun guru demo baru (Siti Rahmawati & Ahmad Fauzi) beserta jadwal contohnya.
 
 ### Yang baru di Sesi 2
 
@@ -59,6 +69,9 @@ kepegawaian-guru/
 │   └── test/     (unit test & widget test)
 ├── backend/      -> API PHP (lihat backend/README.md)
 ├── database/     -> file SQL + ERD & Kamus Data (lihat database/README.md)
+├── docker/       -> resep Docker (backend PHP & aplikasi web)
+├── docs/         -> gambar panduan
+├── docker-compose.yml -> daftar layanan Docker (backend, MySQL, phpMyAdmin)
 └── .vscode/      -> konfigurasi tombol Run (F5) di VS Code
 ```
 
@@ -68,7 +81,7 @@ kepegawaian-guru/
 
 Pasang aplikasi berikut di laptop (Windows):
 
-1. **Laragon** (berisi Apache + MySQL + PHP + HeidiSQL) — <https://laragon.org/download>
+1. **Laragon** (berisi Apache + MySQL + PHP + phpMyAdmin) — <https://laragon.org/download>
 2. **Git** — <https://git-scm.com/download/win>
 3. **Flutter SDK** versi **3.41 atau lebih baru** (disarankan versi stable terbaru) — ikuti panduan <https://docs.flutter.dev/get-started/install/windows>
 4. **Android Studio** — dibutuhkan untuk Android SDK (agar bisa menjalankan di HP).
@@ -208,10 +221,14 @@ File APK ada di `aplikasi/build/app/outputs/flutter-apk/app-release.apk`.
 
 | Role | Login (Email atau NIY) | Kata sandi |
 |---|---|---|
-| Guru | `guru@contoh.test` atau `12345678910` | `guru123` |
+| Guru (SD) | `guru@contoh.test` atau `12345678910` | `guru123` |
+| Guru (TK) | `siti@contoh.test` atau `12345678911` | `guru123` |
+| Guru (SD, PAI) | `ahmad@contoh.test` atau `12345678912` | `guru123` |
 | Admin | `admin@contoh.test` atau `ADM001` | `admin123` |
 
 Bisa juga membuat akun guru sendiri lewat tombol **Daftar di sini** di halaman login.
+
+Mencoba sistem jadwal: login sebagai **Admin** → **Kelola Jadwal Mengajar** → pilih guru → ubah/tambah jadwal. Lalu logout, login sebagai guru tersebut → menu **Jadwal Mengajar**: perubahan langsung terlihat, dan berlaku juga di minggu-minggu berikutnya (tekan tombol **›**).
 
 ---
 
@@ -229,9 +246,18 @@ flutter pub get
 
 > Jika sesi berikutnya mengubah database, akan ada file SQL tambahan + petunjuknya. Jangan import ulang `db_kepegawaian_guru.sql` kalau database sudah berisi data asli, karena file itu menghapus tabel lama.
 
-### Pembaruan database Sesi 2 (wajib, cukup sekali)
+### Pembaruan database Sesi 3 (wajib, cukup sekali)
 
-Sesi 2 menambah kolom `gelar`, tabel `percobaan_login`, dan info kegiatan contoh. Pilih **salah satu**:
+Sesi 3 menambah index untuk pengecekan jadwal bentrok, 2 akun guru demo, dan jadwal contoh. Pilih **salah satu**:
+
+- **Cara mudah (data lama boleh hilang)** — import ulang `database/db_kepegawaian_guru.sql` lewat phpMyAdmin seperti langkah 3.
+- **Cara aman (data lama dipertahankan)** — di phpMyAdmin klik tab **Import**, pilih file `database/migrasi/2026-10-10_sesi3.sql`, lalu klik **Import**. Jadwal contoh hanya ditambahkan untuk akun demo yang belum punya jadwal. (Jika migrasi Sesi 2 belum pernah dijalankan, jalankan `2026-10-09_sesi2.sql` dulu.)
+
+Setelah itu jalankan `flutter pub get`, lalu **stop** aplikasi dan jalankan ulang (`flutter run`), karena ada paket baru (`flutter_localizations`).
+
+### Pembaruan database Sesi 2
+
+Hanya untuk yang belum memperbarui database di Sesi 2. Sesi 2 menambah kolom `gelar`, tabel `percobaan_login`, dan info kegiatan contoh. Pilih **salah satu**:
 
 - **Cara mudah (data lama boleh hilang)** — import ulang `database/db_kepegawaian_guru.sql` lewat phpMyAdmin seperti langkah 3. Semua tabel dibuat ulang (akun yang pernah kamu daftarkan sendiri ikut terhapus; akun demo tetap ada).
 - **Cara aman (data lama dipertahankan)** — di phpMyAdmin klik tab **Import**, pilih file `database/migrasi/2026-10-09_sesi2.sql`, lalu klik **Import**. Nama yang sudah berisi gelar (mis. "Siti Aminah, S.Pd.") otomatis dipisah menjadi nama + gelar.
@@ -241,6 +267,76 @@ Setelah itu jalankan ulang aplikasi (`flutter run`), karena ada gambar & paket b
 ### Memakai XAMPP (opsional)
 
 Proyek ini juga berjalan di XAMPP tanpa perubahan kode: clone ke `C:\xampp\htdocs` (bukan `C:\laragon\www`), nyalakan Apache & MySQL dari XAMPP Control Panel, lalu import SQL lewat <http://localhost/phpmyadmin> (tab **Import**).
+
+---
+
+## 8. Alternatif: menjalankan backend dengan Docker (opsional)
+
+**Docker** membungkus PHP, MySQL, dan phpMyAdmin dalam "kontainer" dengan versi yang **sudah dikunci** (PHP 8.3, MySQL 8.4, phpMyAdmin 5.2). Hasilnya sama persis di laptop siapa pun, jadi tidak ada lagi masalah "di laptopku jalan, di laptopmu error". Database juga **otomatis di-import** saat pertama kali dinyalakan.
+
+Laragon tetap bisa dipakai seperti biasa; Docker hanyalah pilihan lain. **Jangan nyalakan keduanya bersamaan** jika memakai port yang sama.
+
+**Persiapan (sekali):**
+
+1. Pasang **Docker Desktop** — <https://www.docker.com/products/docker-desktop/>. Saat instalasi, biarkan opsi **Use WSL 2** tercentang. Restart laptop jika diminta.
+2. Buka Docker Desktop dan tunggu sampai tulisan **Engine running** (ikon paus di taskbar berhenti bergerak).
+
+**Menyalakan** (di terminal VS Code, dari folder proyek):
+
+```bash
+cd C:\laragon\www\kepegawaian-guru
+docker compose up -d
+```
+
+Pertama kali akan mengunduh ± 1 GB, jadi butuh beberapa menit. Berikutnya hanya beberapa detik. Setelah selesai:
+
+| Layanan | Alamat | Keterangan |
+|---|---|---|
+| Backend API | <http://localhost:8080/kepegawaian-guru/backend/api/> | Harus tampil `"sukses": true` |
+| phpMyAdmin | <http://localhost:8081> | Username `kepegawaian`, password `kepegawaian123` (atau `root` / `root_rahasia`) |
+| MySQL | `localhost:3307` | Untuk HeidiSQL/DBeaver jika perlu |
+
+**Menjalankan aplikasi Flutter dengan backend Docker:**
+
+- Chrome: tekan **F5** di VS Code → pilih **"Aplikasi - Chrome (backend Docker)"**, atau dari folder `aplikasi`:
+  ```bash
+  flutter run -d chrome --dart-define=API_URL=http://localhost:8080/kepegawaian-guru/backend/api
+  ```
+- HP Android (satu Wi-Fi dengan laptop, ganti IP-nya):
+  ```bash
+  flutter run --dart-define=API_URL=http://192.168.1.7:8080/kepegawaian-guru/backend/api
+  ```
+  Jika HP tidak bisa membuka alamat itu, izinkan **Docker Desktop** di Windows Firewall untuk jaringan Private.
+
+**Perintah lain yang sering dipakai:**
+
+```bash
+docker compose ps          # melihat status layanan
+docker compose logs -f     # melihat log (keluar: Ctrl + C)
+docker compose down        # mematikan (data database tetap tersimpan)
+docker compose down -v     # mematikan + MENGHAPUS database (import ulang otomatis saat up berikutnya)
+```
+
+> - Kode backend dibaca langsung dari folder `backend/`, jadi setelah `git pull` perubahan PHP langsung berlaku tanpa perlu build ulang.
+> - Database di Docker **terpisah** dari database Laragon. Jika ada pembaruan database di sesi berikutnya, import file migrasinya lewat phpMyAdmin Docker (<http://localhost:8081>), atau jalankan `docker compose down -v` lalu `docker compose up -d` untuk mulai dari awal.
+> - Port atau kata sandi bisa diubah: salin `.env.example` menjadi `.env`, ubah isinya, lalu `docker compose up -d` lagi.
+> - **Opsional:** aplikasi versi web juga bisa dibangun di Docker tanpa memasang Flutter: `docker compose --profile web up -d --build`, lalu buka <http://localhost:8082>. Proses build pertama cukup lama (mengunduh Flutter ± 1 GB).
+
+---
+
+## Rencana online (nanti)
+
+Agar aplikasi bisa dipakai dari mana saja (bukan hanya satu Wi-Fi), backend + database perlu ditaruh di server internet:
+
+| Pilihan | Cocok untuk | Perkiraan biaya |
+|---|---|---|
+| **Shared hosting** (cPanel, sudah ada PHP + MySQL + phpMyAdmin) | Paling mudah, cara kerjanya mirip Laragon | ± Rp15–50 ribu/bulan + domain |
+| **VPS** (server sendiri) + Docker | Lebih fleksibel, bisa memakai `docker-compose.yml` proyek ini | ± Rp50–100 ribu/bulan + domain |
+
+- **Database ikut online** di hosting/VPS yang sama (di shared hosting dibuat lewat menu *MySQL Databases*, lalu file SQL di-import lewat phpMyAdmin hosting).
+- **Domain**: misalnya `.my.id`/`.web.id` (murah), `.com`/`.id`, atau `.sch.id` (khusus sekolah, butuh dokumen resmi sekolah).
+- **Cloudflare** (gratis) bukan tempat database; fungsinya sebagai pengelola DNS domain, HTTPS (gembok), dan pelindung dari serangan.
+- Yang perlu diubah di proyek: alamat API di aplikasi (`--dart-define=API_URL=https://domain-kamu/backend/api`), isi `backend/config/database.php` (atau variabel lingkungan `DB_*`), dan `tampilkan_error` menjadi `false` di `backend/config/app.php`. Wajib memakai **HTTPS**.
 
 ---
 
@@ -279,4 +375,8 @@ flutter test
 | Setiap aplikasi dibuka ulang selalu kembali ke halaman Login | Apache membuang header token. Pastikan file `backend/.htaccess` ikut ter-clone (file tersembunyi) dan Laragon memakai **Apache** (Menu → Preferences → Services & Ports). |
 | Apache tidak mau menyala karena port 80 dipakai | Matikan aplikasi yang memakai port 80 (mis. IIS/Skype), atau ganti port Apache di Laragon (Menu → Preferences → Services & Ports) lalu jalankan aplikasi dengan `flutter run --dart-define=API_URL=http://localhost:PORT/kepegawaian-guru/backend/api`. |
 | `flutter pub get` gagal karena versi SDK | Perbarui Flutter: `flutter upgrade`. |
+| `docker` tidak dikenali / *"cannot connect to the Docker daemon"* | Pastikan Docker Desktop sudah dibuka dan statusnya **Engine running**, lalu tutup & buka lagi terminal VS Code. |
+| Docker: *"port is already allocated"* | Port 8080/8081/3307 dipakai aplikasi lain (mis. Laragon). Matikan aplikasi itu, atau salin `.env.example` menjadi `.env` dan ganti nomor portnya. |
+| Docker: halaman API menampilkan *"Gagal terhubung ke database"* | MySQL di Docker masih menyiapkan database (± 30 detik saat pertama kali). Cek dengan `docker compose ps` sampai `db` berstatus **healthy**. |
+| Jadwal Mengajar guru kosong | Admin belum mengatur jadwal guru tersebut (Kelola Jadwal Mengajar), atau database belum diperbarui ke Sesi 3. |
 | Folder proyek bukan `kepegawaian-guru` | Ubah `folderProyek` di `aplikasi/lib/config/api_config.dart`. |

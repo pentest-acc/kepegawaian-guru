@@ -60,6 +60,22 @@ function input_teks(array $input, $kunci)
 }
 
 /**
+ * Alamat dasar folder backend, mis. http://192.168.1.7/kepegawaian-guru/backend
+ * Dipakai untuk membuat link file (lampiran, foto) yang bisa dibuka aplikasi.
+ */
+function url_backend()
+{
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    $host  = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $skrip = $_SERVER['SCRIPT_NAME'] ?? '';
+    $posisi = strpos($skrip, '/api/');
+    $folder = $posisi === false ? '' : substr($skrip, 0, $posisi);
+
+    return ($https ? 'https' : 'http') . '://' . $host . $folder;
+}
+
+/**
  * Ambil kata sandi dari input apa adanya (tanpa trim, karena spasi
  * bisa jadi bagian dari kata sandi).
  */

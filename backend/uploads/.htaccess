@@ -1,0 +1,5 @@
+# Folder ini hanya untuk file unggahan (PDF, gambar, dll).
+# Demi keamanan, file skrip PHP di folder ini tidak boleh dijalankan.
+<FilesMatch "\.(php\d?|phtml|phar)$">
+    Require all denied
+</FilesMatch>

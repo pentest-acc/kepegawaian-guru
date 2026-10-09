@@ -19,6 +19,8 @@ dependencies:
   shared_preferences: ^2.5.6
   # Format tanggal Bahasa Indonesia
   intl: ^0.20.3
+  # Membuka lampiran (PDF) di browser/aplikasi lain
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

@@ -30,7 +30,8 @@ void main() {
 
       final pengguna = await auth.login(' 12345678910 ', 'guru123');
 
-      expect(pengguna.namaLengkap, 'Guru Contoh, S.Pd.');
+      expect(pengguna.namaLengkap, 'Guru Contoh');
+      expect(pengguna.namaTampil, 'Guru Contoh, S.Pd.');
       expect(await sesi.ambilToken(), 'a' * 64);
       expect((await sesi.ambilPengguna())?.idPengguna, 2);
 
@@ -102,6 +103,7 @@ void main() {
     await expectLater(
       auth.register(
         namaLengkap: 'Siti',
+        gelar: 'S.Pd.',
         nomorInduk: '2026001',
         email: 'salah',
         noHp: '081234567890',

@@ -8,6 +8,7 @@ class Pengguna {
     required this.role,
     required this.jabatan,
     required this.status,
+    this.gelar,
     this.noHp,
     this.unit,
     this.jenisKelamin,
@@ -20,7 +21,12 @@ class Pengguna {
 
   final int idPengguna;
   final String nomorInduk;
+
+  /// Nama tanpa gelar, mis. "Siti Aminah".
   final String namaLengkap;
+
+  /// Gelar akademik, mis. "S.Pd." atau "Drs." (null jika tanpa gelar).
+  final String? gelar;
   final String email;
   final String? noHp;
 
@@ -44,7 +50,26 @@ class Pengguna {
 
   bool get isAdmin => role == 'admin';
 
-  /// Nama depan untuk sapaan, contoh: "Guru Contoh, S.Pd." -> "Guru".
+  /// Gelar yang ditulis di DEPAN nama (gelar lainnya ditulis di belakang).
+  static const Set<String> gelarDepan = {
+    'Dr.',
+    'Drs.',
+    'Dra.',
+    'Ir.',
+    'H.',
+    'Hj.',
+  };
+
+  /// Nama lengkap beserta gelar untuk ditampilkan,
+  /// mis. "Siti Aminah, S.Pd." atau "Drs. Budi Santoso".
+  String get namaTampil {
+    final g = gelar?.trim() ?? '';
+    if (g.isEmpty) return namaLengkap;
+    if (gelarDepan.contains(g)) return '$g $namaLengkap';
+    return '$namaLengkap, $g';
+  }
+
+  /// Nama depan untuk sapaan, contoh: "Siti Aminah" -> "Siti".
   String get namaDepan {
     final bersih = namaLengkap.split(',').first.trim();
     return bersih.isEmpty ? namaLengkap : bersih.split(RegExp(r'\s+')).first;
@@ -78,6 +103,7 @@ class Pengguna {
       idPengguna: int.parse(json['id_pengguna'].toString()),
       nomorInduk: json['nomor_induk'].toString(),
       namaLengkap: json['nama_lengkap'].toString(),
+      gelar: teksAtauNull('gelar'),
       email: json['email'].toString(),
       noHp: teksAtauNull('no_hp'),
       role: teksAtauNull('role') ?? 'guru',
@@ -97,6 +123,7 @@ class Pengguna {
     'id_pengguna': idPengguna,
     'nomor_induk': nomorInduk,
     'nama_lengkap': namaLengkap,
+    'gelar': gelar,
     'email': email,
     'no_hp': noHp,
     'role': role,

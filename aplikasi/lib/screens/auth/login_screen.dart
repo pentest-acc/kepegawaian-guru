@@ -206,6 +206,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
+/// Header halaman login: foto bersama Yayasan dengan filter navy,
+/// logo, dan ucapan selamat datang.
 class _HeaderLogin extends StatelessWidget {
   const _HeaderLogin();
 
@@ -213,37 +215,57 @@ class _HeaderLogin extends StatelessWidget {
   Widget build(BuildContext context) {
     final atas = MediaQuery.paddingOf(context).top;
 
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(24, atas + 36, 24, 36),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.navy, AppColors.navyTerang],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
-      ),
-      child: Column(
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+      child: Stack(
         children: [
-          const LogoYayasan(ukuran: 84),
-          const SizedBox(height: 16),
-          const Text(
-            'Selamat Datang',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/header_sekolah.jpg',
+              fit: BoxFit.cover,
+              alignment: const Alignment(0, 0.2),
+              errorBuilder: (context, error, stackTrace) =>
+                  const ColoredBox(color: AppColors.navy),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            'Sistem Informasi Kepegawaian Guru\nYayasan Tiara Harapan Jaya',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.75),
-              fontSize: 13,
-              height: 1.5,
+          // Filter navy: foto tetap terlihat, tulisan putih tetap terbaca
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xE6140B2D), Color(0xB32A1B5C)],
+                ),
+              ),
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(24, atas + 36, 24, 36),
+            child: Column(
+              children: [
+                const LogoYayasan(ukuran: 84),
+                const SizedBox(height: 16),
+                const Text(
+                  'Selamat Datang',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Sistem Informasi Kepegawaian Guru\nYayasan Tiara Harapan Jaya',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

@@ -36,6 +36,7 @@ class AuthService {
   /// Daftar akun guru baru. Mengembalikan pesan sukses dari server.
   Future<String> register({
     required String namaLengkap,
+    required String gelar,
     required String nomorInduk,
     required String email,
     required String noHp,
@@ -46,6 +47,7 @@ class AuthService {
   }) async {
     final respon = await _api.post('auth/register.php', {
       'nama_lengkap': namaLengkap.trim(),
+      'gelar': gelar,
       'nomor_induk': nomorInduk.trim(),
       'email': email.trim(),
       'no_hp': noHp.trim(),

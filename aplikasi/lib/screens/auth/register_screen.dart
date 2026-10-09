@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../config/app_colors.dart';
+import '../../config/daftar_gelar.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../utils/pesan.dart';
@@ -32,6 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _konfirmasiController = TextEditingController();
   late final AuthService _auth = widget.authService ?? AuthService();
 
+  String? _gelar;
   String? _unit;
   String? _jenisKelamin;
   bool _sedangMemuat = false;
@@ -73,6 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final pesan = await _auth.register(
         namaLengkap: _namaController.text,
+        gelar: _gelar!,
         nomorInduk: _nomorIndukController.text,
         email: _emailController.text,
         noHp: _noHpController.text,
@@ -142,13 +145,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 _kartuInfo(),
                 const SizedBox(height: 24),
                 InputField(
-                  label: 'Nama Lengkap (beserta gelar)',
-                  hint: 'contoh: Siti Aminah, S.Pd.',
+                  label: 'Nama Lengkap (tanpa gelar)',
+                  hint: 'contoh: Siti Aminah',
                   controller: _namaController,
                   ikon: Icons.badge_outlined,
                   textCapitalization: TextCapitalization.words,
                   autofillHints: const [AutofillHints.name],
                   validator: Validator.namaLengkap,
+                ),
+                const SizedBox(height: 16),
+                _pilihan(
+                  label: 'Gelar',
+                  hint: 'Pilih gelar',
+                  ikon: Icons.workspace_premium_outlined,
+                  pilihan: DaftarGelar.pilihan,
+                  nilai: _gelar,
+                  onChanged: (v) => setState(() => _gelar = v),
+                  pesanWajib:
+                      'Pilih gelar (pilih "Tanpa gelar" jika tidak ada).',
                 ),
                 const SizedBox(height: 16),
                 InputField(

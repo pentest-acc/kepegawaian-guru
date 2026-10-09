@@ -18,6 +18,9 @@ class Validator {
     if (teks.isEmpty) return 'Nama lengkap wajib diisi.';
     if (teks.length < 3) return 'Nama lengkap minimal 3 karakter.';
     if (teks.length > 100) return 'Nama lengkap maksimal 100 karakter.';
+    if (teks.contains(',')) {
+      return 'Tulis nama tanpa gelar. Gelar dipilih di kolom Gelar.';
+    }
     return null;
   }
 

@@ -16,6 +16,18 @@
       "request": "launch",
       "cwd": "aplikasi",
       "program": "lib/main.dart"
+    },
+    {
+      // Dipakai jika backend dijalankan dengan Docker (docker compose up -d)
+      "name": "Aplikasi - Chrome (backend Docker)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "aplikasi",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "args": [
+        "--dart-define=API_URL=http://localhost:8080/kepegawaian-guru/backend/api"
+      ]
     }
   ]
 }

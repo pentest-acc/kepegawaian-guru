@@ -1,0 +1,96 @@
+# =====================================================================
+#  Docker untuk Sistem Informasi Kepegawaian Guru
+#
+#  Menjalankan semua kebutuhan backend dengan versi yang SAMA di setiap
+#  laptop: PHP 8.3 + Apache, MySQL 8.4, dan phpMyAdmin.
+#
+#  Perintah dasar (jalankan di folder proyek):
+#    docker compose up -d          -> menyalakan semua layanan
+#    docker compose ps             -> melihat status layanan
+#    docker compose logs -f        -> melihat log
+#    docker compose down           -> mematikan (data database tetap aman)
+#    docker compose down -v        -> mematikan + MENGHAPUS data database
+#
+#  Opsional, aplikasi Flutter versi web (tanpa perlu install Flutter):
+#    docker compose --profile web up -d --build
+#
+#  Port & kata sandi bisa diubah lewat file .env (lihat .env.example).
+# =====================================================================
+name: kepegawaian-guru
+
+services:
+  # Database MySQL. Saat pertama kali dinyalakan, file SQL proyek otomatis
+  # di-import (tabel + data contoh). Data disimpan di volume "data-mysql".
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_rahasia}
+      MYSQL_DATABASE: db_kepegawaian_guru
+      MYSQL_USER: ${DB_USER:-kepegawaian}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-kepegawaian123}
+      TZ: Asia/Jakarta
+    ports:
+      - "${PORT_DB:-3307}:3306"
+    volumes:
+      - data-mysql:/var/lib/mysql
+      - ./database/db_kepegawaian_guru.sql:/docker-entrypoint-initdb.d/01-db_kepegawaian_guru.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # Backend API (folder backend/) dengan PHP 8.3 + Apache.
+  # Alamat API: http://localhost:8080/kepegawaian-guru/backend/api/
+  backend:
+    build: ./docker/backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: db_kepegawaian_guru
+      DB_USER: ${DB_USER:-kepegawaian}
+      DB_PASSWORD: ${DB_PASSWORD:-kepegawaian123}
+      TZ: Asia/Jakarta
+    ports:
+      - "${PORT_WEB:-8080}:80"
+    volumes:
+      # Kode backend dibaca langsung dari folder proyek,
+      # jadi perubahan kode langsung berlaku tanpa build ulang.
+      - ./backend:/var/www/html/kepegawaian-guru/backend
+
+  # phpMyAdmin: http://localhost:8081 (server: db)
+  phpmyadmin:
+    image: phpmyadmin:5.2
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      PMA_HOST: db
+      UPLOAD_LIMIT: 20M
+    ports:
+      - "${PORT_PHPMYADMIN:-8081}:80"
+
+  # (Opsional) Aplikasi Flutter versi web: http://localhost:8082
+  # Hanya dibuat jika memakai: docker compose --profile web up -d --build
+  aplikasi-web:
+    profiles: ["web"]
+    build:
+      context: .
+      dockerfile: docker/aplikasi-web/Dockerfile
+      args:
+        API_URL: http://localhost:${PORT_WEB:-8080}/kepegawaian-guru/backend/api
+    platform: linux/amd64
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${PORT_APLIKASI:-8082}:80"
+
+volumes:
+  data-mysql:

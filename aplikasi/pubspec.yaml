@@ -11,6 +11,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Teks bawaan Flutter (kalender, jam, tombol OK/Batal) dalam Bahasa Indonesia
+  flutter_localizations:
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
   # Komunikasi dengan backend API (PHP)

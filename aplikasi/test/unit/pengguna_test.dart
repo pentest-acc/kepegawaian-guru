@@ -9,7 +9,8 @@ void main() {
 
     expect(p.idPengguna, 2);
     expect(p.nomorInduk, '12345678910');
-    expect(p.namaLengkap, 'Guru Contoh, S.Pd.');
+    expect(p.namaLengkap, 'Guru Contoh');
+    expect(p.gelar, 'S.Pd.');
     expect(p.unit, 'SD');
     expect(p.isAdmin, isFalse);
     expect(p.notifikasiAktif, isTrue);
@@ -48,5 +49,30 @@ void main() {
       'nama_lengkap': 'budi',
     });
     expect(satuKata.inisial, 'B');
+  });
+
+  group('namaTampil (nama + gelar)', () {
+    Pengguna dengan(String nama, String? gelar) => Pengguna.fromJson({
+      ...jsonGuruContoh,
+      'nama_lengkap': nama,
+      'gelar': gelar,
+    });
+
+    test('gelar di belakang nama', () {
+      expect(dengan('Siti Aminah', 'S.Pd.').namaTampil, 'Siti Aminah, S.Pd.');
+      expect(
+        dengan('Siti Aminah', 'S.Pd., M.Pd.').namaTampil,
+        'Siti Aminah, S.Pd., M.Pd.',
+      );
+    });
+
+    test('gelar di depan nama', () {
+      expect(dengan('Budi Santoso', 'Drs.').namaTampil, 'Drs. Budi Santoso');
+    });
+
+    test('tanpa gelar', () {
+      expect(dengan('Budi Santoso', null).namaTampil, 'Budi Santoso');
+      expect(dengan('Budi Santoso', '').namaTampil, 'Budi Santoso');
+    });
   });
 }

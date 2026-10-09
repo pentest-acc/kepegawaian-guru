@@ -4,8 +4,8 @@ import '../config/app_colors.dart';
 
 /// Logo Yayasan dalam kotak putih bersudut bulat.
 ///
-/// Memakai file `assets/images/logo_yayasan.png`. Jika file belum ada,
-/// otomatis diganti ikon sekolah.
+/// Memakai file `assets/images/logo_yayasan.png`. Jika file tidak ditemukan,
+/// diganti ikon gambar sederhana.
 class LogoYayasan extends StatelessWidget {
   const LogoYayasan({super.key, this.ukuran = 56});
 
@@ -34,7 +34,7 @@ class LogoYayasan extends StatelessWidget {
         lokasiFile,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Icon(
-          Icons.school_rounded,
+          Icons.image_outlined,
           size: ukuran * 0.6,
           color: AppColors.navy,
         ),

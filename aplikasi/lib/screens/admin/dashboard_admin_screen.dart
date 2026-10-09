@@ -79,7 +79,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Halo, ${widget.pengguna.namaLengkap}',
+                    'Halo, ${widget.pengguna.namaTampil}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 17,

@@ -4,13 +4,19 @@ import 'package:intl/intl.dart';
 
 import '../../config/app_colors.dart';
 import '../../config/app_routes.dart';
+import '../../models/info_kegiatan.dart';
 import '../../models/pengguna.dart';
+import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/info_service.dart';
 import '../../utils/pesan.dart';
 import '../../widgets/avatar_pengguna.dart';
+import '../../widgets/banner_info_berjalan.dart';
 import '../../widgets/loading_overlay.dart';
 import '../../widgets/logo_yayasan.dart';
 import '../umum/segera_hadir_screen.dart';
+import 'info_detail_screen.dart';
+import 'info_kegiatan_screen.dart';
 
 /// Data satu tombol menu di Beranda.
 class MenuBeranda {
@@ -23,10 +29,16 @@ class MenuBeranda {
 
 /// Halaman utama (Beranda) untuk Guru.
 class BerandaScreen extends StatefulWidget {
-  const BerandaScreen({super.key, required this.pengguna, this.authService});
+  const BerandaScreen({
+    super.key,
+    required this.pengguna,
+    this.authService,
+    this.infoService,
+  });
 
   final Pengguna pengguna;
   final AuthService? authService;
+  final InfoService? infoService;
 
   /// Menu sesuai daftar fitur di Project Charter (Tampilan Guru).
   static const List<MenuBeranda> daftarMenu = [
@@ -67,10 +79,42 @@ class BerandaScreen extends StatefulWidget {
 class _BerandaScreenState extends State<BerandaScreen> {
   late Pengguna _pengguna = widget.pengguna;
   late final AuthService _auth = widget.authService ?? AuthService();
+  late final InfoService _infoService = widget.infoService ?? InfoService();
   bool _sedangKeluar = false;
 
-  /// Tarik layar ke bawah untuk memuat ulang data profil terbaru.
+  /// 5 info kegiatan terbaru untuk banner "Informasi Akademik".
+  List<InfoKegiatan> _infoTerbaru = const [];
+  bool _memuatInfo = true;
+  String _pesanInfo = 'Belum ada info kegiatan terbaru.';
+
+  @override
+  void initState() {
+    super.initState();
+    _muatInfo();
+  }
+
+  Future<void> _muatInfo() async {
+    try {
+      final hasil = await _infoService.daftar(batas: 5);
+      if (!mounted) return;
+      setState(() {
+        _infoTerbaru = hasil;
+        _memuatInfo = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _memuatInfo = false;
+        _pesanInfo = e.tidakAdaKoneksi
+            ? 'Info belum bisa dimuat. Tarik layar ke bawah untuk mencoba lagi.'
+            : e.pesan;
+      });
+    }
+  }
+
+  /// Tarik layar ke bawah untuk memuat ulang data profil & info terbaru.
   Future<void> _muatUlang() async {
+    _muatInfo();
     final terbaru = await _auth.cekSesi();
     if (!mounted) return;
     if (terbaru == null) {
@@ -129,7 +173,28 @@ class _BerandaScreenState extends State<BerandaScreen> {
     ).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
   }
 
+  Future<void> _bukaInfoKegiatan() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => InfoKegiatanScreen(infoService: _infoService),
+      ),
+    );
+    _muatInfo(); // siapa tahu ada info baru
+  }
+
+  void _bukaDetailInfo(InfoKegiatan info) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => InfoDetailScreen(info: info, infoService: _infoService),
+      ),
+    );
+  }
+
   void _bukaMenu(MenuBeranda menu) {
+    if (menu.judul == 'Info Kegiatan') {
+      _bukaInfoKegiatan();
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => SegeraHadirScreen(
@@ -171,10 +236,14 @@ class _BerandaScreenState extends State<BerandaScreen> {
                       _JudulBagian(
                         'Informasi Akademik',
                         aksi: 'Selengkapnya',
-                        onAksi: () => _bukaMenu(BerandaScreen.daftarMenu.first),
+                        onAksi: _bukaInfoKegiatan,
                       ),
-                      _BannerInformasi(
-                        onTap: () => _bukaMenu(BerandaScreen.daftarMenu.first),
+                      BannerInfoBerjalan(
+                        daftar: _infoTerbaru,
+                        sedangMemuat: _memuatInfo,
+                        pesanKosong: _pesanInfo,
+                        onTapInfo: _bukaDetailInfo,
+                        onTapKosong: _bukaInfoKegiatan,
                       ),
                       const SizedBox(height: 26),
                       const _JudulBagian('Menu Lainnya'),
@@ -290,8 +359,8 @@ class _HeaderBeranda extends StatelessWidget {
   }
 }
 
-/// Foto gedung sekolah (`assets/images/header_sekolah.jpg`).
-/// Jika belum ada, diganti latar gradasi dengan nama Yayasan.
+/// Foto bersama Yayasan (`assets/images/header_sekolah.jpg`).
+/// Jika file tidak ada, diganti latar gradasi dengan nama Yayasan.
 class _FotoSekolah extends StatelessWidget {
   const _FotoSekolah();
 
@@ -303,17 +372,25 @@ class _FotoSekolah extends StatelessWidget {
         Image.asset(
           'assets/images/header_sekolah.jpg',
           fit: BoxFit.cover,
+          alignment: const Alignment(0, 0.15),
           errorBuilder: (context, error, stackTrace) =>
               const _LatarPenggantiFoto(),
         ),
-        // Bayangan tipis di atas agar logo & tombol tetap terlihat jelas
+        // Filter: rona navy tipis agar warna foto senada dengan aplikasi,
+        // lebih gelap di bagian atas supaya logo & tombol tetap jelas,
+        // dan memudar ke putih di bagian bawah (menyatu dengan halaman).
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0x66000000), Color(0x00000000)],
-              stops: [0, 0.5],
+              colors: [
+                Color(0x99140B2D),
+                Color(0x26140B2D),
+                Color(0x14140B2D),
+                Color(0xB3FFFFFF),
+              ],
+              stops: [0, 0.38, 0.72, 1],
             ),
           ),
         ),
@@ -341,7 +418,7 @@ class _LatarPenggantiFoto extends StatelessWidget {
             right: -30,
             bottom: -40,
             child: Icon(
-              Icons.school_rounded,
+              Icons.groups_rounded,
               size: 200,
               color: Colors.white.withValues(alpha: 0.07),
             ),
@@ -412,44 +489,17 @@ class _KartuIdentitas extends StatelessWidget {
           painter: _PolaKartuPainter(),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-            child: Stack(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _BarisKartu(label: 'Nama', nilai: pengguna.namaLengkap),
-                    const SizedBox(height: 12),
-                    _BarisKartu(
-                      label: 'Nomor Induk Yayasan',
-                      nilai: pengguna.nomorInduk,
-                    ),
-                    const SizedBox(height: 12),
-                    _BarisKartu(label: 'Jabatan', nilai: pengguna.jabatan),
-                  ],
+                _BarisKartu(label: 'Nama', nilai: pengguna.namaTampil),
+                const SizedBox(height: 12),
+                _BarisKartu(
+                  label: 'Nomor Induk Yayasan',
+                  nilai: pengguna.nomorInduk,
                 ),
-                if (pengguna.unit != null)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        pengguna.unit!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
+                const SizedBox(height: 12),
+                _BarisKartu(label: 'Jabatan', nilai: pengguna.jabatan),
               ],
             ),
           ),
@@ -479,7 +529,7 @@ class _BarisKartu extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(right: 40),
+          padding: const EdgeInsets.only(right: 16),
           child: Text(
             nilai,
             maxLines: 2,
@@ -579,150 +629,6 @@ class _JudulBagian extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-class _BannerInformasi extends StatelessWidget {
-  const _BannerInformasi({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      borderRadius: BorderRadius.circular(18),
-      clipBehavior: Clip.antiAlias,
-      elevation: 6,
-      shadowColor: AppColors.navy.withValues(alpha: 0.4),
-      child: InkWell(
-        onTap: onTap,
-        child: Ink(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(colors: AppColors.gradasiBanner),
-          ),
-          child: CustomPaint(
-            painter: _GelombangPainter(),
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 96),
-              padding: const EdgeInsets.fromLTRB(18, 14, 16, 14),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Info Kegiatan Yayasan',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Lihat pengumuman & kegiatan terbaru',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Color(0xCCFFFFFF),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _IkonKotakEmpat(),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Gelombang pink-magenta di bagian bawah banner (seperti desain).
-class _GelombangPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    void gelombang(double dasar, double tinggi, List<Color> warna) {
-      final path = Path()..moveTo(0, h * dasar);
-      path.cubicTo(
-        w * 0.25,
-        h * (dasar - tinggi),
-        w * 0.45,
-        h * (dasar + tinggi),
-        w * 0.7,
-        h * dasar,
-      );
-      path.cubicTo(w * 0.85, h * (dasar - tinggi * 0.6), w * 0.95, h, w, h);
-      path.lineTo(0, h);
-      path.close();
-
-      final cat = Paint()
-        ..shader = LinearGradient(
-          colors: warna,
-        ).createShader(Rect.fromLTWH(0, 0, w, h));
-      canvas.drawPath(path, cat);
-    }
-
-    gelombang(0.62, 0.3, const [Color(0xAAE0217A), Color(0x55753BBD)]);
-    gelombang(0.8, 0.22, const [Color(0xFFF0386B), Color(0x99B620E0)]);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _IkonKotakEmpat extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    Widget kotak(List<Color> warna) => Container(
-      width: 15,
-      height: 15,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: warna,
-        ),
-      ),
-    );
-
-    const pinkUngu = [Color(0xFFFF6FB5), Color(0xFF9F6BFF)];
-    const unguBiru = [Color(0xFFB57BFF), Color(0xFF63B3ED)];
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            kotak(pinkUngu),
-            const SizedBox(width: 4),
-            kotak(unguBiru),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            kotak(unguBiru),
-            const SizedBox(width: 4),
-            kotak(pinkUngu),
-          ],
-        ),
-      ],
     );
   }
 }

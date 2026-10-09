@@ -23,6 +23,7 @@ erDiagram
         INT id_pengguna PK
         VARCHAR nomor_induk UK
         VARCHAR nama_lengkap
+        VARCHAR gelar
         VARCHAR email UK
         VARCHAR password
         ENUM role
@@ -80,6 +81,12 @@ erDiagram
         DATE tanggal UK
         VARCHAR keterangan
     }
+    percobaan_login {
+        INT id_percobaan PK
+        VARCHAR identitas
+        VARCHAR alamat_ip
+        DATETIME waktu
+    }
     pengaturan {
         TINYINT id_pengaturan PK
         TIME jam_masuk
@@ -102,7 +109,8 @@ Keterangan: **PK** = Primary Key, **FK** = Foreign Key, **UK** = Unique Key.
 |---|---|---|
 | id_pengguna | INT, PK, auto increment | ID pengguna |
 | nomor_induk | VARCHAR(30), UK | Nomor Induk Yayasan (NIY), bisa dipakai login |
-| nama_lengkap | VARCHAR(100) | Nama lengkap beserta gelar |
+| nama_lengkap | VARCHAR(100) | Nama lengkap **tanpa** gelar |
+| gelar | VARCHAR(30) | Gelar akademik, mis. `S.Pd.`, `S.Pd., M.Pd.`, `Drs.` (kosong jika tanpa gelar) |
 | email | VARCHAR(100), UK | Email, bisa dipakai login |
 | no_hp | VARCHAR(20) | Nomor HP/WhatsApp |
 | password | VARCHAR(255) | Hash bcrypt (kata sandi asli **tidak** disimpan) |
@@ -127,6 +135,17 @@ Keterangan: **PK** = Primary Key, **FK** = Foreign Key, **UK** = Unique Key.
 | dibuat_pada | DATETIME | Waktu login |
 | kedaluwarsa_pada | DATETIME | Token tidak berlaku setelah waktu ini (default 30 hari) |
 
+### 2b. `percobaan_login` — catatan login yang gagal
+
+Dipakai untuk mengunci sementara akun yang kata sandinya salah 5 kali (15 menit). Tidak berelasi langsung dengan tabel lain karena orang bisa saja mencoba login dengan email yang tidak terdaftar.
+
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id_percobaan | INT, PK | ID catatan |
+| identitas | VARCHAR(100) | `akun:<id_pengguna>` jika akunnya ada, atau email/NIY yang dicoba jika tidak terdaftar |
+| alamat_ip | VARCHAR(45) | Alamat IP perangkat yang mencoba |
+| waktu | DATETIME | Waktu percobaan gagal (catatan > 1 hari dihapus otomatis) |
+
 ### 3. `info_kegiatan` — informasi & pengumuman Yayasan
 
 | Kolom | Tipe | Keterangan |
@@ -136,9 +155,10 @@ Keterangan: **PK** = Primary Key, **FK** = Foreign Key, **UK** = Unique Key.
 | isi | TEXT | Isi/keterangan |
 | kategori | ENUM | Pengumuman, Rapat, Acara, Libur, Lainnya |
 | tanggal_kegiatan | DATE | Tanggal kegiatan |
-| lampiran | VARCHAR(255) | File yang bisa diunduh guru |
+| lampiran | VARCHAR(255) | Nama file di `backend/uploads/lampiran/` yang bisa diunduh guru |
 | status | ENUM('draf','terbit') | Hanya yang `terbit` tampil di aplikasi guru |
 | dibuat_oleh | INT, FK → pengguna | Admin pembuat |
+| dibuat_pada | DATETIME | Waktu info diumumkan (ditampilkan di daftar & banner Beranda) |
 
 ### 4. `info_penting` — info yang ditandai bintang oleh guru
 
@@ -210,6 +230,14 @@ Keterangan: **PK** = Primary Key, **FK** = Foreign Key, **UK** = Unique Key.
 | lokasi_lat, lokasi_lng | DECIMAL(10,7) | Titik lokasi absen (diisi admin) |
 | radius_absen | SMALLINT | Jarak maksimal absen dari titik lokasi (meter) |
 | kuota_cuti_tahunan | TINYINT | Jatah cuti per tahun (hari) |
+
+## Riwayat perubahan (migrasi)
+
+| File | Isi |
+|---|---|
+| `migrasi/2026-10-09_sesi2.sql` | Sesi 2: kolom `pengguna.gelar` (nama bergelar lama dipisah otomatis), tabel `percobaan_login`, 5 info kegiatan contoh + lampiran, alamat Yayasan |
+
+File migrasi hanya untuk database lama yang datanya ingin dipertahankan. Untuk instalasi baru cukup import `db_kepegawaian_guru.sql`.
 
 ## Akun demo
 

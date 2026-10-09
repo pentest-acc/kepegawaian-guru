@@ -4,13 +4,15 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kepegawaian_guru/services/api_service.dart';
 import 'package:kepegawaian_guru/services/auth_service.dart';
+import 'package:kepegawaian_guru/services/info_service.dart';
 import 'package:kepegawaian_guru/services/session_service.dart';
 
 /// Contoh data pengguna seperti yang dikirim backend.
 const Map<String, dynamic> jsonGuruContoh = {
   'id_pengguna': 2,
   'nomor_induk': '12345678910',
-  'nama_lengkap': 'Guru Contoh, S.Pd.',
+  'nama_lengkap': 'Guru Contoh',
+  'gelar': 'S.Pd.',
   'email': 'guru@contoh.test',
   'no_hp': '081200000002',
   'role': 'guru',
@@ -55,4 +57,39 @@ AuthService buatAuthPalsu(
     baseUrl: 'http://server-tes/api',
   );
   return AuthService(api: api, sesi: sesiDipakai);
+}
+
+/// Contoh info kegiatan seperti yang dikirim backend.
+Map<String, dynamic> jsonInfoContoh({
+  int id = 1,
+  String judul = 'Rapat Guru Bulanan',
+  String dibuat = '2026-10-06 09:00:00',
+  bool penting = false,
+  bool berlampiran = false,
+}) => {
+  'id_info': id,
+  'judul': judul,
+  'isi': 'Isi info $judul',
+  'kategori': 'Rapat',
+  'tanggal_kegiatan': '2026-10-15',
+  'dibuat_pada': dibuat,
+  'lampiran': berlampiran
+      ? {
+          'nama': 'jadwal.pdf',
+          'url': 'http://server-tes/uploads/lampiran/jadwal.pdf',
+        }
+      : null,
+  'penting': penting,
+};
+
+/// InfoService yang memakai server palsu.
+InfoService buatInfoPalsu(
+  Future<http.Response> Function(http.Request request) server,
+) {
+  final api = ApiService(
+    client: MockClient(server),
+    sesi: SessionService(),
+    baseUrl: 'http://server-tes/api',
+  );
+  return InfoService(api: api);
 }

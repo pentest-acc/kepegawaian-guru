@@ -5,7 +5,8 @@
  *
  * Body JSON:
  *   {
- *     "nama_lengkap": "...", "nomor_induk": "...", "email": "...",
+ *     "nama_lengkap": "... (tanpa gelar)", "gelar": "S.Pd." (boleh kosong),
+ *     "nomor_induk": "...", "email": "...",
  *     "no_hp": "08...", "unit": "KB|TK|SD", "jenis_kelamin": "L|P",
  *     "password": "...", "konfirmasi_password": "..."
  *   }
@@ -16,6 +17,7 @@ wajib_method('POST');
 
 $input        = ambil_input();
 $namaLengkap  = preg_replace('/\s+/', ' ', input_teks($input, 'nama_lengkap'));
+$gelar        = preg_replace('/\s+/', ' ', input_teks($input, 'gelar'));
 $nomorInduk   = input_teks($input, 'nomor_induk');
 $email        = strtolower(input_teks($input, 'email'));
 $noHp         = preg_replace('/[\s-]/', '', input_teks($input, 'no_hp'));
@@ -29,6 +31,11 @@ $kesalahan = [];
 
 if (mb_strlen($namaLengkap) < 3 || mb_strlen($namaLengkap) > 100) {
     $kesalahan['nama_lengkap'] = 'Nama lengkap minimal 3 dan maksimal 100 karakter.';
+} elseif (strpos($namaLengkap, ',') !== false) {
+    $kesalahan['nama_lengkap'] = 'Tulis nama tanpa gelar. Gelar dipilih di kolom Gelar.';
+}
+if (!preg_match('/^[A-Za-z., ]{0,30}$/', $gelar)) {
+    $kesalahan['gelar'] = 'Gelar tidak valid.';
 }
 if (!preg_match('/^[0-9A-Za-z.\-]{4,30}$/', $nomorInduk)) {
     $kesalahan['nomor_induk'] = 'Nomor Induk Yayasan 4-30 karakter (angka/huruf).';
@@ -71,12 +78,13 @@ foreach ($cek->fetchAll() as $baris) {
 // ---------- Simpan ----------
 // role selalu 'guru' (tidak diambil dari input supaya tidak bisa daftar sebagai admin)
 $simpan = db()->prepare(
-    'INSERT INTO pengguna (nomor_induk, nama_lengkap, email, no_hp, password, role, jabatan, unit, jenis_kelamin)
-     VALUES (?, ?, ?, ?, ?, \'guru\', \'Guru\', ?, ?)'
+    'INSERT INTO pengguna (nomor_induk, nama_lengkap, gelar, email, no_hp, password, role, jabatan, unit, jenis_kelamin)
+     VALUES (?, ?, ?, ?, ?, ?, \'guru\', \'Guru\', ?, ?)'
 );
 $simpan->execute([
     $nomorInduk,
     $namaLengkap,
+    $gelar !== '' ? $gelar : null,
     $email,
     $noHp,
     password_hash($password, PASSWORD_DEFAULT),

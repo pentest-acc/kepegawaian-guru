@@ -13,13 +13,23 @@ Dikerjakan bertahap, mulai dari dasar seperti programmer pada umumnya.
 | Sesi | Isi | Status |
 |---|---|---|
 | **1** | Fondasi proyek, rancangan database lengkap, API login/register, animasi splash & loading, Login, Register, Beranda Guru | ✅ Selesai |
-| 2 | Info Kegiatan (daftar, cari, tandai penting, unduh lampiran) | ⏳ Berikutnya |
-| 3 | Jadwal Mengajar (tab Senin–Jumat) | ⏳ |
+| **2** | Info Kegiatan (daftar, cari, tandai penting, detail, unduh lampiran), banner info bergulir otomatis di Beranda, logo & foto Yayasan, nama + gelar terpisah, pengamanan login | ✅ Selesai |
+| 3 | Jadwal Mengajar (tab Senin–Jumat) | ⏳ Berikutnya |
 | 4 | Absen (foto + GPS, jam masuk/pulang) | ⏳ |
 | 5 | Riwayat Absen (rekap per bulan, jam kerja) | ⏳ |
 | 6 | Cuti / Izin (pengajuan, sisa kuota, status) | ⏳ |
 | 7 | Pengaturan & Profil | ⏳ |
 | 8+ | Halaman Admin: dashboard, data guru, kelola info & jadwal, monitoring absensi, persetujuan cuti, laporan PDF/Excel, pengaturan sistem | ⏳ |
+
+### Yang baru di Sesi 2
+
+- **Info Kegiatan** (menu pertama di Beranda) sesuai desain: kolom pencarian, kartu info berisi tanggal dibuat & judul, **bintang** untuk menandai info penting, tombol **Penting** di kanan atas untuk menampilkan info yang ditandai saja, tombol **unduh** untuk info yang punya lampiran (contoh: PDF jadwal pengambilan raport), dan halaman **detail** info.
+- **Banner Informasi Akademik** di Beranda kini berisi 5 info terbaru yang **bergulir otomatis ke atas setiap 5 detik** (bisa juga digeser manual). Setiap info menampilkan kategori dan tanggal dibuat; ketuk untuk membuka detailnya.
+- **Logo Yayasan** menggantikan ikon toga (splash, login, Beranda, ikon aplikasi Android & web).
+- **Foto bersama Yayasan** menjadi latar header halaman Login (filter navy) dan Beranda (memudar ke putih).
+- Label unit (KB/TK/SD) di kartu hijau Beranda dihapus.
+- Form register: **Nama Lengkap** dan **Gelar** (dropdown) dipisah. Nama tampil otomatis dengan gelar, mis. *Siti Aminah, S.Pd.* atau *Drs. Budi Santoso*.
+- **Pengamanan login**: setelah 5 kali salah kata sandi, akun dikunci sementara 15 menit (berlaku untuk login lewat email maupun NIY).
 
 ### Yang sudah bisa dicoba (Sesi 1)
 
@@ -219,6 +229,15 @@ flutter pub get
 
 > Jika sesi berikutnya mengubah database, akan ada file SQL tambahan + petunjuknya. Jangan import ulang `db_kepegawaian_guru.sql` kalau database sudah berisi data asli, karena file itu menghapus tabel lama.
 
+### Pembaruan database Sesi 2 (wajib, cukup sekali)
+
+Sesi 2 menambah kolom `gelar`, tabel `percobaan_login`, dan info kegiatan contoh. Pilih **salah satu**:
+
+- **Cara mudah (data lama boleh hilang)** — import ulang `database/db_kepegawaian_guru.sql` lewat phpMyAdmin seperti langkah 3. Semua tabel dibuat ulang (akun yang pernah kamu daftarkan sendiri ikut terhapus; akun demo tetap ada).
+- **Cara aman (data lama dipertahankan)** — di phpMyAdmin klik tab **Import**, pilih file `database/migrasi/2026-10-09_sesi2.sql`, lalu klik **Import**. Nama yang sudah berisi gelar (mis. "Siti Aminah, S.Pd.") otomatis dipisah menjadi nama + gelar.
+
+Setelah itu jalankan ulang aplikasi (`flutter run`), karena ada gambar & paket baru (`url_launcher`).
+
 ### Memakai XAMPP (opsional)
 
 Proyek ini juga berjalan di XAMPP tanpa perubahan kode: clone ke `C:\xampp\htdocs` (bukan `C:\laragon\www`), nyalakan Apache & MySQL dari XAMPP Control Panel, lalu import SQL lewat <http://localhost/phpmyadmin> (tab **Import**).
@@ -227,12 +246,17 @@ Proyek ini juga berjalan di XAMPP tanpa perubahan kode: clone ke `C:\xampp\htdoc
 
 ## Gambar Yayasan (logo & foto header)
 
-Taruh file asli di `aplikasi/assets/images/`:
+Gambar ada di `aplikasi/assets/images/`:
 
-- `logo_yayasan.png` — logo Yayasan (persegi, latar transparan)
-- `header_sekolah.jpg` — foto gedung sekolah untuk header Beranda
+- `logo_yayasan.png` — logo Yayasan (splash, login, Beranda)
+- `header_sekolah.jpg` — foto bersama untuk latar header Login & Beranda
 
-Selama file belum ada, aplikasi memakai ikon dan latar gradasi pengganti. Setelah menambahkan gambar, **stop** aplikasi lalu jalankan ulang (`flutter run`).
+Untuk mengganti, timpa file tersebut dengan gambar baru (nama file sama), **stop** aplikasi, lalu jalankan ulang (`flutter run`). Ikon aplikasi Android ada di `aplikasi/android/app/src/main/res/mipmap-*/ic_launcher.png` dan ikon web di `aplikasi/web/`.
+
+## Keamanan login
+
+- Login bisa memakai **email** atau **Nomor Induk Yayasan (NIY)**. Keduanya hanya berfungsi sebagai *nama pengguna*; yang benar-benar melindungi akun adalah **kata sandi** (disimpan sebagai hash bcrypt, tidak bisa dibaca siapa pun).
+- Untuk mencegah orang menebak-nebak kata sandi, akun dikunci **15 menit** setelah **5 kali** salah kata sandi (dihitung per akun, jadi tidak bisa diakali dengan bergantian memakai email lalu NIY). Angka ini bisa diubah di `backend/config/app.php`.
 
 ## Menjalankan test
 

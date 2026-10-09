@@ -54,6 +54,8 @@ void main() {
 
   test('Validator.namaLengkap', () {
     expect(Validator.namaLengkap('Al'), isNotNull);
-    expect(Validator.namaLengkap('Siti Aminah, S.Pd.'), isNull);
+    expect(Validator.namaLengkap('Siti Aminah'), isNull);
+    // Gelar tidak boleh ditulis di kolom nama
+    expect(Validator.namaLengkap('Siti Aminah, S.Pd.'), isNotNull);
   });
 }

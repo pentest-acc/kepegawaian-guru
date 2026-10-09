@@ -116,6 +116,7 @@ function data_pengguna_publik(array $p)
         'id_pengguna'      => (int) $p['id_pengguna'],
         'nomor_induk'      => $p['nomor_induk'],
         'nama_lengkap'     => $p['nama_lengkap'],
+        'gelar'            => $p['gelar'],
         'email'            => $p['email'],
         'no_hp'            => $p['no_hp'],
         'role'             => $p['role'],

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -117,7 +119,8 @@ void main() {
     expect(find.text('12345678910'), findsOneWidget);
     expect(find.text('Guru Kelas'), findsOneWidget);
     for (final menu in BerandaScreen.daftarMenu) {
-      expect(find.text(menu.judul), findsOneWidget);
+      // "Info Kegiatan" juga bisa muncul di banner, jadi minimal 1
+      expect(find.text(menu.judul), findsAtLeastNWidgets(1));
     }
     expect(await SessionService().ambilToken(), 'a' * 64);
   });
@@ -156,12 +159,14 @@ void main() {
     tester,
   ) async {
     layarHp(tester);
-    final auth = buatAuthPalsu(
-      (req) async => responJson(201, true, 'Registrasi berhasil.', {
+    Map<String, dynamic>? dataTerkirim;
+    final auth = buatAuthPalsu((req) async {
+      dataTerkirim = jsonDecode(req.body) as Map<String, dynamic>;
+      return responJson(201, true, 'Registrasi berhasil.', {
         'id_pengguna': 5,
         'email': 'siti@contoh.test',
-      }),
-    );
+      });
+    });
 
     String? emailKembali;
     await tester.pumpWidget(
@@ -194,7 +199,14 @@ void main() {
 
     // Isi semua data dengan benar
     final isian = find.byType(TextFormField);
+    // Gelar ditulis di kolom nama -> ditolak
     await tester.enterText(isian.at(0), 'Siti Aminah, S.Pd.');
+    await tester.pump();
+    expect(
+      find.text('Tulis nama tanpa gelar. Gelar dipilih di kolom Gelar.'),
+      findsOneWidget,
+    );
+    await tester.enterText(isian.at(0), 'Siti Aminah');
     await tester.enterText(isian.at(1), '2026001');
     await tester.enterText(isian.at(2), 'siti@contoh.test');
     await tester.enterText(isian.at(3), '081234567890');
@@ -210,8 +222,9 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    await pilih(0, 'TK - Taman Kanak-kanak');
-    await pilih(1, 'Perempuan');
+    await pilih(0, 'S.Pd. (Sarjana Pendidikan)');
+    await pilih(1, 'TK - Taman Kanak-kanak');
+    await pilih(2, 'Perempuan');
 
     await tester.ensureVisible(tombol);
     await tester.tap(tombol);
@@ -222,6 +235,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(emailKembali, 'siti@contoh.test');
+    expect(dataTerkirim?['nama_lengkap'], 'Siti Aminah');
+    expect(dataTerkirim?['gelar'], 'S.Pd.');
+    expect(dataTerkirim?['unit'], 'TK');
     expect(find.byType(RegisterScreen), findsNothing);
   });
 }

@@ -1,6 +1,8 @@
 # Database `db_kepegawaian_guru`
 
-File SQL: [`db_kepegawaian_guru.sql`](db_kepegawaian_guru.sql). Bisa langsung di-import lewat phpMyAdmin (tombol **Database** di Laragon) — langkah bergambar ada di [README utama](../README.md#3-menyalakan-laragon--menyiapkan-database). Sudah diuji di MySQL 8.0, MariaDB 10.11, dan phpMyAdmin 5.2.
+File SQL: [`db_kepegawaian_guru.sql`](db_kepegawaian_guru.sql). Bisa langsung di-import lewat phpMyAdmin (tombol **Database** di Laragon) — langkah bergambar ada di [README utama](../README.md#3-menyalakan-laragon--menyiapkan-database). Sudah diuji di MySQL 8.0, MySQL 8.4 (Docker), MariaDB 10.11, dan phpMyAdmin 5.2.
+
+Jika memakai Docker (`docker compose up -d`), file ini otomatis di-import saat database Docker pertama kali dibuat.
 
 > Struktur database dirancang lengkap dari awal sesuai Project Charter, jadi semua tabel sudah ada walaupun fiturnya dibuat bertahap.
 > Bagian ini juga bisa dipakai sebagai bahan **ERD** dan **Kamus Data** untuk tugas analisa & desain sistem.
@@ -55,6 +57,7 @@ erDiagram
         ENUM hari
         TIME jam_mulai
         TIME jam_selesai
+        ENUM unit
         VARCHAR kelas
         VARCHAR mata_pelajaran
     }
@@ -170,6 +173,8 @@ Dipakai untuk mengunci sementara akun yang kata sandinya salah 5 kali (15 menit)
 
 ### 5. `jadwal_mengajar` — jadwal mingguan guru
 
+Tabel ini menyimpan **pola mingguan** (hari + jam), bukan tanggal. Satu baris = satu jam pelajaran yang **berulang setiap minggu**, jadi admin cukup mengisi sekali. Untuk menampilkan jadwal pada tanggal tertentu, aplikasi mencocokkan nama harinya (mis. 12 Oktober 2026 = Senin) lalu mengecek tabel `hari_libur`.
+
 | Kolom | Tipe | Keterangan |
 |---|---|---|
 | id_jadwal | INT, PK | ID jadwal |
@@ -177,8 +182,10 @@ Dipakai untuk mengunci sementara akun yang kata sandinya salah 5 kali (15 menit)
 | hari | ENUM('Senin'..'Sabtu') | Hari mengajar |
 | jam_mulai, jam_selesai | TIME | Jam pelajaran |
 | unit | ENUM('KB','TK','SD') | Unit |
-| kelas | VARCHAR(20) | Contoh: 3A |
+| kelas | VARCHAR(20) | Contoh: 3A, TK A (disimpan huruf besar) |
 | mata_pelajaran | VARCHAR(100) | Mata pelajaran / kegiatan |
+
+Index: `idx_jadwal_guru_hari (id_pengguna, hari)` dan `idx_jadwal_kelas_hari (unit, kelas, hari)` untuk mempercepat pengecekan **jadwal bentrok**. Dua jadwal dianggap bentrok jika harinya sama dan jamnya beririsan (`jam_mulai_lama < jam_selesai_baru` **dan** `jam_selesai_lama > jam_mulai_baru`), baik untuk guru yang sama maupun untuk kelas yang sama.
 
 ### 6. `absensi` — absen masuk & pulang (foto + GPS)
 
@@ -236,6 +243,7 @@ Dipakai untuk mengunci sementara akun yang kata sandinya salah 5 kali (15 menit)
 | File | Isi |
 |---|---|
 | `migrasi/2026-10-09_sesi2.sql` | Sesi 2: kolom `pengguna.gelar` (nama bergelar lama dipisah otomatis), tabel `percobaan_login`, 5 info kegiatan contoh + lampiran, alamat Yayasan |
+| `migrasi/2026-10-10_sesi3.sql` | Sesi 3: index `idx_jadwal_kelas_hari`, 2 akun guru demo, jadwal mengajar contoh (hanya untuk akun demo yang belum punya jadwal). Aman dijalankan ulang |
 
 File migrasi hanya untuk database lama yang datanya ingin dipertahankan. Untuk instalasi baru cukup import `db_kepegawaian_guru.sql`.
 
@@ -244,6 +252,8 @@ File migrasi hanya untuk database lama yang datanya ingin dipertahankan. Untuk i
 | Role | Login (Email / NIY) | Kata sandi |
 |---|---|---|
 | Admin | `admin@contoh.test` / `ADM001` | `admin123` |
-| Guru | `guru@contoh.test` / `12345678910` | `guru123` |
+| Guru (SD) | `guru@contoh.test` / `12345678910` | `guru123` |
+| Guru (TK) | `siti@contoh.test` / `12345678911` | `guru123` |
+| Guru (SD) | `ahmad@contoh.test` / `12345678912` | `guru123` |
 
 Ganti kata sandi akun demo sebelum aplikasi dipakai sungguhan.

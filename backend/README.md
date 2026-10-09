@@ -9,13 +9,14 @@ backend/
 ├── .htaccess          # meneruskan header Authorization ke PHP (Apache Laragon/XAMPP)
 ├── config/
 │   ├── app.php        # zona waktu, masa berlaku token, batas gagal login, tampilkan error
-│   └── database.php   # host, nama database, user, password MySQL
+│   └── database.php   # host, nama database, user, password MySQL (bisa diisi lewat variabel lingkungan, dipakai Docker)
 ├── core/              # fungsi bantu yang dipakai semua endpoint
 │   ├── bootstrap.php  # header JSON + CORS, penanganan error
 │   ├── koneksi.php    # koneksi PDO ke MySQL -> db()
 │   ├── respon.php     # kirim_json(), ambil_input(), url_backend(), dll.
 │   ├── auth.php       # buat token, cek login (wajib_login), dll.
-│   └── info.php       # query & format data info kegiatan
+│   ├── info.php       # query & format data info kegiatan
+│   └── jadwal.php     # daftar hari/unit, urutan & format data jadwal mengajar
 ├── api/
 │   ├── index.php      # cek API & database
 │   ├── auth/
@@ -23,10 +24,18 @@ backend/
 │   │   ├── register.php
 │   │   ├── profil.php
 │   │   └── logout.php
-│   └── info/
-│       ├── daftar.php
-│       ├── detail.php
-│       └── tandai.php
+│   ├── info/
+│   │   ├── daftar.php
+│   │   ├── detail.php
+│   │   └── tandai.php
+│   ├── jadwal/
+│   │   └── saya.php       # jadwal mengajar guru yang sedang login
+│   └── admin/             # khusus role admin
+│       ├── guru.php       # daftar guru (untuk memilih guru)
+│       └── jadwal/
+│           ├── daftar.php
+│           ├── simpan.php # tambah / ubah + cek jadwal bentrok
+│           └── hapus.php
 └── uploads/
     ├── .htaccess      # melarang file PHP dijalankan di folder unggahan
     └── lampiran/      # file lampiran info kegiatan (PDF, dll.)
@@ -56,12 +65,19 @@ Alamat dasar (Laragon/XAMPP): `http://localhost/kepegawaian-guru/backend/api`
 | GET | `/info/daftar.php` | Ya | Daftar info kegiatan terbit (terbaru di atas). Parameter opsional: `cari`, `penting=1`, `batas` |
 | GET | `/info/detail.php?id=1` | Ya | Detail satu info |
 | POST | `/info/tandai.php` | Ya | Tandai/lepas bintang: `{"id_info": 1, "penting": true}` |
+| GET | `/jadwal/saya.php` | Ya | Jadwal mengajar mingguan guru yang login + hari libur pada rentang tanggal. Parameter opsional: `dari`, `sampai` (format `YYYY-MM-DD`, default minggu ini Senin–Sabtu, maks. 62 hari) |
+| GET | `/admin/guru.php` | Admin | Daftar guru + jumlah jadwalnya. Parameter opsional: `cari` (nama/NIY) |
+| GET | `/admin/jadwal/daftar.php?id_pengguna=2` | Admin | Seluruh jadwal mingguan seorang guru |
+| POST | `/admin/jadwal/simpan.php` | Admin | Tambah jadwal, atau ubah jika mengirim `id_jadwal` |
+| POST | `/admin/jadwal/hapus.php` | Admin | Hapus jadwal: `{"id_jadwal": 5}` |
 
 Endpoint yang butuh login wajib mengirim header:
 
 ```
 Authorization: Bearer <token dari login>
 ```
+
+Endpoint bertanda **Admin** menjawab `403` jika yang login bukan admin.
 
 ### POST `/auth/login.php`
 
@@ -136,6 +152,62 @@ Contoh `info/daftar.php?batas=1`:
 
 `penting` milik masing-masing guru (dari tabel `info_penting`). Info berstatus `draf` tidak ikut tampil.
 
+### Jadwal mengajar = jadwal mingguan
+
+Tabel `jadwal_mengajar` menyimpan **pola mingguan** (hari + jam), bukan tanggal. Admin cukup mengisi sekali, lalu jadwal yang sama otomatis berlaku setiap minggu. Tanggal yang ada di tabel `hari_libur` tetap ditampilkan sebagai libur di aplikasi guru.
+
+### GET `/jadwal/saya.php`
+
+Contoh `jadwal/saya.php?dari=2026-10-05&sampai=2026-10-10` (dipotong):
+
+```json
+{
+  "sukses": true,
+  "pesan": "10 jadwal mengajar.",
+  "data": {
+    "dari": "2026-10-05",
+    "sampai": "2026-10-10",
+    "jadwal": [
+      {
+        "id_jadwal": 1,
+        "id_pengguna": 2,
+        "hari": "Senin",
+        "jam_mulai": "07:30",
+        "jam_selesai": "09:00",
+        "unit": "SD",
+        "kelas": "3B",
+        "mata_pelajaran": "Bahasa Indonesia"
+      }
+    ],
+    "libur": [ { "tanggal": "2026-10-08", "keterangan": "Libur Yayasan" } ]
+  }
+}
+```
+
+### POST `/admin/jadwal/simpan.php`
+
+```json
+{
+  "id_jadwal": 5,
+  "id_pengguna": 2,
+  "hari": "Senin",
+  "jam_mulai": "07:30",
+  "jam_selesai": "09:00",
+  "unit": "SD",
+  "kelas": "3B",
+  "mata_pelajaran": "Bahasa Indonesia"
+}
+```
+
+- Tanpa `id_jadwal` = tambah baru (`201`), dengan `id_jadwal` = ubah (`200`). Jawaban berisi `data.jadwal` yang tersimpan.
+- `hari`: Senin–Sabtu; `unit`: KB/TK/SD; `kelas` ditulis huruf besar otomatis (mis. `3b` → `3B`).
+- `422` isian tidak valid (jam selesai harus setelah jam mulai, dll.), `404` guru/jadwal tidak ditemukan.
+- `409` **jadwal bentrok**, yaitu jam yang tumpang tindih dengan:
+  - jadwal lain milik guru yang sama di hari itu, atau
+  - jadwal guru lain di kelas & unit yang sama pada hari itu.
+
+  Contoh pesan: `"Kelas SD 3B pada jam itu sudah diajar oleh Ahmad Fauzi, S.Pd.I. (Pendidikan Agama Islam, 09:30-10:40)."`
+
 ## Mencoba API tanpa aplikasi
 
 Buka di browser: <http://localhost/kepegawaian-guru/backend/api/>. Jika muncul `"sukses": true`, berarti PHP dan database sudah tersambung.
@@ -155,3 +227,7 @@ Invoke-RestMethod -Method Post -Uri http://localhost/kepegawaian-guru/backend/ap
 - Login dikunci sementara setelah 5 kali salah kata sandi (per akun), mencegah tebak-tebakan kata sandi.
 - Folder `uploads/` tidak bisa menjalankan file PHP (lihat `uploads/.htaccess`), jadi file unggahan tidak bisa dipakai untuk menyusupkan skrip.
 - Saat sudah di hosting: ubah `tampilkan_error` menjadi `false` di `config/app.php` dan pakai user database selain `root`.
+
+## Konfigurasi database lewat variabel lingkungan
+
+`config/database.php` membaca `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, dan `DB_PASSWORD` jika ada. Jika tidak ada (Laragon/XAMPP), otomatis memakai bawaan `127.0.0.1:3306`, user `root` tanpa kata sandi. Docker mengisi variabel ini sendiri (lihat `docker-compose.yml`), sehingga file ini tidak perlu diubah.

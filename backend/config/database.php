@@ -2,15 +2,18 @@
 /**
  * Konfigurasi koneksi database MySQL.
  *
- * Nilai default di bawah ini sudah cocok untuk Laragon maupun XAMPP
- * (user "root" tanpa kata sandi, port 3306). Saat aplikasi dipindah ke hosting,
- * cukup ganti nilai-nilai di file ini.
+ * Nilai bawaan di bawah ini sudah cocok untuk Laragon maupun XAMPP
+ * (user "root" tanpa kata sandi, port 3306).
+ *
+ * Saat dijalankan dengan Docker (atau di hosting), nilai bisa diatur lewat
+ * environment variable DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+ * tanpa perlu mengubah file ini.
  */
 return [
-    'host'     => '127.0.0.1',
-    'port'     => 3306,
-    'database' => 'db_kepegawaian_guru',
-    'username' => 'root',
-    'password' => '',
+    'host'     => getenv('DB_HOST') ?: '127.0.0.1',
+    'port'     => (int) (getenv('DB_PORT') ?: 3306),
+    'database' => getenv('DB_NAME') ?: 'db_kepegawaian_guru',
+    'username' => getenv('DB_USER') ?: 'root',
+    'password' => getenv('DB_PASSWORD') !== false ? getenv('DB_PASSWORD') : '',
     'charset'  => 'utf8mb4',
 ];

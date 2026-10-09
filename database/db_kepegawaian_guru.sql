@@ -123,7 +123,11 @@ CREATE TABLE info_penting (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
--- 5. jadwal_mengajar : jadwal mengajar mingguan setiap guru
+-- 5. jadwal_mengajar : jadwal mengajar MINGGUAN setiap guru
+--    Satu baris = satu jam pelajaran pada hari tertentu, dan otomatis
+--    berlaku SETIAP MINGGU (tidak perlu diisi ulang tiap minggu).
+--    Admin cukup mengubah baris ini jika ada perubahan jadwal/mapel.
+--    Tanggal yang ada di tabel hari_libur otomatis dianggap libur.
 -- ---------------------------------------------------------------------
 CREATE TABLE jadwal_mengajar (
   id_jadwal         INT UNSIGNED     NOT NULL AUTO_INCREMENT,
@@ -138,6 +142,7 @@ CREATE TABLE jadwal_mengajar (
   diubah_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id_jadwal),
   KEY idx_jadwal_guru_hari (id_pengguna, hari),
+  KEY idx_jadwal_kelas_hari (unit, kelas, hari),
   CONSTRAINT fk_jadwal_pengguna FOREIGN KEY (id_pengguna)
     REFERENCES pengguna (id_pengguna) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -256,24 +261,45 @@ VALUES (1, 'Yayasan Tiara Harapan Jaya', 'PUP Sektor V Blok O2 No. 1-5, Kel. Bah
 -- Akun demo (GANTI kata sandi setelah aplikasi dipakai sungguhan!)
 --   Admin : ADM001 / admin@contoh.test       kata sandi: admin123
 --   Guru  : 12345678910 / guru@contoh.test   kata sandi: guru123
+--   Guru  : 12345678911 / siti@contoh.test   kata sandi: guru123
+--   Guru  : 12345678912 / ahmad@contoh.test  kata sandi: guru123
 INSERT INTO pengguna (id_pengguna, nomor_induk, nama_lengkap, gelar, email, no_hp, password, role,
                       jabatan, unit, jenis_kelamin)
 VALUES
   (1, 'ADM001', 'Admin Yayasan', NULL, 'admin@contoh.test', '081200000001',
    '$2y$10$arktODfbEKH1IV.1Hk0uEu8S6WipCNi3FdEEgBWZ9UdJYX/Ke2vvy', 'admin', 'Staf Tata Usaha', NULL, NULL),
   (2, '12345678910', 'Guru Contoh', 'S.Pd.', 'guru@contoh.test', '081200000002',
-   '$2y$10$ug6XsBJ3VgZBnWJXK8gSvu66QtozXt3LjOPFD2FPY.Fc9eJqAnZzu', 'guru', 'Guru Kelas', 'SD', 'L');
+   '$2y$10$ug6XsBJ3VgZBnWJXK8gSvu66QtozXt3LjOPFD2FPY.Fc9eJqAnZzu', 'guru', 'Guru Kelas', 'SD', 'L'),
+  (3, '12345678911', 'Siti Rahmawati', 'S.Pd.', 'siti@contoh.test', '081200000003',
+   '$2y$10$ug6XsBJ3VgZBnWJXK8gSvu66QtozXt3LjOPFD2FPY.Fc9eJqAnZzu', 'guru', 'Wali Kelas', 'TK', 'P'),
+  (4, '12345678912', 'Ahmad Fauzi', 'S.Pd.I.', 'ahmad@contoh.test', '081200000004',
+   '$2y$10$ug6XsBJ3VgZBnWJXK8gSvu66QtozXt3LjOPFD2FPY.Fc9eJqAnZzu', 'guru', 'Guru Mapel', 'SD', 'L');
 
--- Jadwal mengajar contoh untuk guru demo
+-- Jadwal mengajar contoh (berulang setiap minggu)
 INSERT INTO jadwal_mengajar (id_pengguna, hari, jam_mulai, jam_selesai, unit, kelas, mata_pelajaran)
 VALUES
+  -- Guru Contoh, S.Pd. (SD)
   (2, 'Senin',  '07:30:00', '09:00:00', 'SD', '3B', 'Bahasa Indonesia'),
   (2, 'Senin',  '09:30:00', '10:40:00', 'SD', '3A', 'Bahasa Indonesia'),
   (2, 'Senin',  '10:40:00', '11:50:00', 'SD', '2A', 'Bahasa Indonesia'),
   (2, 'Selasa', '07:30:00', '09:00:00', 'SD', '2A', 'Matematika'),
+  (2, 'Selasa', '09:30:00', '10:40:00', 'SD', '3A', 'Matematika'),
   (2, 'Rabu',   '07:30:00', '09:00:00', 'SD', '3A', 'Pendidikan Pancasila'),
+  (2, 'Rabu',   '09:30:00', '10:40:00', 'SD', '2B', 'Bahasa Indonesia'),
+  (2, 'Kamis',  '07:30:00', '08:40:00', 'SD', '3B', 'Bahasa Indonesia'),
   (2, 'Kamis',  '09:30:00', '10:40:00', 'SD', '3B', 'Matematika'),
-  (2, 'Jumat',  '07:30:00', '08:40:00', 'SD', '2A', 'Seni Budaya');
+  (2, 'Jumat',  '07:30:00', '08:40:00', 'SD', '2A', 'Seni Budaya'),
+  -- Siti Rahmawati, S.Pd. (TK)
+  (3, 'Senin',  '07:30:00', '10:00:00', 'TK', 'TK A', 'Pembelajaran Tematik'),
+  (3, 'Selasa', '07:30:00', '10:00:00', 'TK', 'TK A', 'Pembelajaran Tematik'),
+  (3, 'Rabu',   '07:30:00', '10:00:00', 'TK', 'TK A', 'Pembelajaran Tematik'),
+  (3, 'Kamis',  '07:30:00', '10:00:00', 'TK', 'TK A', 'Pembelajaran Tematik'),
+  (3, 'Jumat',  '07:30:00', '09:30:00', 'TK', 'TK A', 'Senam & Motorik Kasar'),
+  -- Ahmad Fauzi, S.Pd.I. (SD)
+  (4, 'Senin',  '07:30:00', '09:00:00', 'SD', '2A', 'Pendidikan Agama Islam'),
+  (4, 'Senin',  '09:30:00', '10:40:00', 'SD', '3B', 'Pendidikan Agama Islam'),
+  (4, 'Rabu',   '07:30:00', '09:00:00', 'SD', '3B', 'Pendidikan Agama Islam'),
+  (4, 'Jumat',  '07:30:00', '08:40:00', 'SD', '3A', 'Pendidikan Agama Islam');
 
 -- Info kegiatan contoh (lampiran ada di backend/uploads/lampiran/)
 INSERT INTO info_kegiatan (judul, isi, kategori, tanggal_kegiatan, lampiran, status, dibuat_oleh, dibuat_pada)

@@ -17,6 +17,7 @@ import '../../widgets/logo_yayasan.dart';
 import '../umum/segera_hadir_screen.dart';
 import 'info_detail_screen.dart';
 import 'info_kegiatan_screen.dart';
+import 'jadwal_mengajar_screen.dart';
 
 /// Data satu tombol menu di Beranda.
 class MenuBeranda {
@@ -193,6 +194,12 @@ class _BerandaScreenState extends State<BerandaScreen> {
   void _bukaMenu(MenuBeranda menu) {
     if (menu.judul == 'Info Kegiatan') {
       _bukaInfoKegiatan();
+      return;
+    }
+    if (menu.judul == 'Jadwal Mengajar') {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const JadwalMengajarScreen()),
+      );
       return;
     }
     Navigator.of(context).push(

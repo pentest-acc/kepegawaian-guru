@@ -1,0 +1,10 @@
+# Hanya folder aplikasi/ yang dibutuhkan saat build aplikasi-web
+.git
+backend
+database
+docs
+docker
+aplikasi/build
+aplikasi/.dart_tool
+aplikasi/android/.gradle
+aplikasi/android/local.properties

@@ -5,6 +5,7 @@ import '../../config/app_routes.dart';
 import '../../models/pengguna.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/loading_overlay.dart';
+import 'admin_pilih_guru_screen.dart';
 
 /// Halaman awal Admin (sementara).
 ///
@@ -38,6 +39,16 @@ class DashboardAdminScreen extends StatefulWidget {
 class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   late final AuthService _auth = widget.authService ?? AuthService();
   bool _sedangKeluar = false;
+
+  /// Halaman untuk fitur admin yang sudah tersedia (null = belum dibuat).
+  Widget? _halamanFitur(String nama) {
+    switch (nama) {
+      case 'Kelola Jadwal Mengajar':
+        return const AdminPilihGuruScreen();
+      default:
+        return null;
+    }
+  }
 
   Future<void> _keluar() async {
     setState(() => _sedangKeluar = true);
@@ -96,7 +107,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Fitur Admin yang akan dibuat:',
+              'Fitur Admin:',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
@@ -112,10 +123,22 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
                 child: ListTile(
                   leading: Icon(ikon, color: AppColors.navyTerang),
                   title: Text(nama, style: const TextStyle(fontSize: 14)),
-                  trailing: const Text(
-                    'Segera',
-                    style: TextStyle(fontSize: 11, color: AppColors.teksAbu),
-                  ),
+                  onTap: _halamanFitur(nama) == null
+                      ? null
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => _halamanFitur(nama)!,
+                          ),
+                        ),
+                  trailing: _halamanFitur(nama) == null
+                      ? const Text(
+                          'Segera',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.teksAbu,
+                          ),
+                        )
+                      : const Icon(Icons.chevron_right_rounded),
                 ),
               ),
           ],

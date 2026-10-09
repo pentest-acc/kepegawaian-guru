@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'config/app_colors.dart';
@@ -21,6 +22,10 @@ class AplikasiKepegawaian extends StatelessWidget {
       title: 'Kepegawaian Guru',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.terang,
+      // Bahasa Indonesia untuk komponen bawaan (pemilih jam, tombol, dll.)
+      locale: const Locale('id', 'ID'),
+      supportedLocales: const [Locale('id', 'ID'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       // Aplikasi selalu dimulai dari splash screen (cek sesi login dulu)
       onGenerateInitialRoutes: (_) => [
         AppRoutes.buatRoute(const RouteSettings(name: AppRoutes.splash)),

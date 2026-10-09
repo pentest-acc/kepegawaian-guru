@@ -5,6 +5,7 @@ import 'package:http/testing.dart';
 import 'package:kepegawaian_guru/services/api_service.dart';
 import 'package:kepegawaian_guru/services/auth_service.dart';
 import 'package:kepegawaian_guru/services/info_service.dart';
+import 'package:kepegawaian_guru/services/jadwal_service.dart';
 import 'package:kepegawaian_guru/services/session_service.dart';
 
 /// Contoh data pengguna seperti yang dikirim backend.
@@ -92,4 +93,37 @@ InfoService buatInfoPalsu(
     baseUrl: 'http://server-tes/api',
   );
   return InfoService(api: api);
+}
+
+/// Contoh jadwal mengajar seperti yang dikirim backend.
+Map<String, dynamic> jsonJadwalContoh({
+  int id = 1,
+  int idPengguna = 2,
+  String hari = 'Senin',
+  String mulai = '07:30',
+  String selesai = '09:00',
+  String kelas = '3B',
+  String mapel = 'Bahasa Indonesia',
+  String unit = 'SD',
+}) => {
+  'id_jadwal': id,
+  'id_pengguna': idPengguna,
+  'hari': hari,
+  'jam_mulai': mulai,
+  'jam_selesai': selesai,
+  'unit': unit,
+  'kelas': kelas,
+  'mata_pelajaran': mapel,
+};
+
+/// JadwalService yang memakai server palsu.
+JadwalService buatJadwalPalsu(
+  Future<http.Response> Function(http.Request request) server,
+) {
+  final api = ApiService(
+    client: MockClient(server),
+    sesi: SessionService(),
+    baseUrl: 'http://server-tes/api',
+  );
+  return JadwalService(api: api);
 }

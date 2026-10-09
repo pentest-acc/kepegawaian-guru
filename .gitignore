@@ -5,3 +5,6 @@ desktop.ini
 
 # Pengaturan pribadi VS Code (launch.json & extensions.json tetap ikut di-commit)
 .vscode/settings.json
+
+# Pengaturan Docker pribadi (lihat .env.example)
+.env

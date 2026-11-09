@@ -13,3 +13,7 @@ RUN docker-php-ext-install pdo_mysql \
 # Halaman awal sederhana jika membuka http://localhost:8080/
 RUN printf '<!doctype html><meta charset="utf-8"><title>Kepegawaian Guru</title><p>Backend berjalan. API: <a href="/kepegawaian-guru/backend/api/">/kepegawaian-guru/backend/api/</a></p>' \
       > /var/www/html/index.html
+
+# Folder foto absen harus bisa ditulis Apache (www-data). Di Windows/Mac
+# perintah chown boleh gagal (folder dari laptop sudah bisa ditulis).
+CMD ["bash", "-c", "mkdir -p /var/www/html/kepegawaian-guru/backend/uploads/absen; chown www-data:www-data /var/www/html/kepegawaian-guru/backend/uploads/absen 2>/dev/null || true; exec apache2-foreground"]

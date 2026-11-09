@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../services/jadwal_service.dart';
 import '../../utils/hari.dart';
 import '../../widgets/input_field.dart';
+import '../../widgets/kotak_jam.dart';
 import '../../widgets/tombol_utama.dart';
 
 /// Admin: form tambah / ubah satu jadwal mengajar.
@@ -224,7 +225,7 @@ class _FormJadwalScreenState extends State<FormJadwalScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _KotakJam(
+                    child: KotakJam(
                       label: 'Jam mulai',
                       jam: _mulai,
                       onTap: () => _pilihJam(mulai: true),
@@ -232,7 +233,7 @@ class _FormJadwalScreenState extends State<FormJadwalScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _KotakJam(
+                    child: KotakJam(
                       label: 'Jam selesai',
                       jam: _selesai,
                       onTap: () => _pilihJam(mulai: false),
@@ -306,58 +307,6 @@ class _FormJadwalScreenState extends State<FormJadwalScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _KotakJam extends StatelessWidget {
-  const _KotakJam({
-    required this.label,
-    required this.jam,
-    required this.onTap,
-  });
-
-  final String label;
-  final TimeOfDay? jam;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final teks = jam == null
-        ? '--.--'
-        : '${jam!.hour.toString().padLeft(2, '0')}.'
-              '${jam!.minute.toString().padLeft(2, '0')}';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        LabelIsian(label),
-        Material(
-          color: AppColors.isian,
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(14),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              child: Row(
-                children: [
-                  const Icon(Icons.schedule_rounded, color: AppColors.teksAbu),
-                  const SizedBox(width: 10),
-                  Text(
-                    teks,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: jam == null ? AppColors.teksAbu : AppColors.teks,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -198,7 +197,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ],
             ),
-            if (kDebugMode) const _InfoAkunDemo(),
           ],
         ),
       ),
@@ -269,29 +267,6 @@ class _HeaderLogin extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Info akun demo, hanya muncul saat mode debug (tidak ada di APK rilis).
-class _InfoAkunDemo extends StatelessWidget {
-  const _InfoAkunDemo();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.mint.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Text(
-        'Akun demo (mode debug):\n'
-        'Guru  : 12345678910 / guru123\n'
-        'Admin : ADM001 / admin123',
-        style: TextStyle(fontSize: 12, color: AppColors.teks, height: 1.5),
       ),
     );
   }

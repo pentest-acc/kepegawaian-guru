@@ -35,6 +35,7 @@ DROP TABLE IF EXISTS absensi;
 DROP TABLE IF EXISTS cuti;
 DROP TABLE IF EXISTS hari_libur;
 DROP TABLE IF EXISTS pengaturan;
+DROP TABLE IF EXISTS jam_kerja_unit;
 DROP TABLE IF EXISTS token_login;
 DROP TABLE IF EXISTS percobaan_login;
 DROP TABLE IF EXISTS pengguna;
@@ -149,7 +150,9 @@ CREATE TABLE jadwal_mengajar (
 
 -- ---------------------------------------------------------------------
 -- 6. absensi : absen masuk & pulang guru (foto + lokasi GPS)
---    satu guru hanya punya satu baris absensi per tanggal
+--    satu guru hanya punya satu baris absensi per tanggal.
+--    Jam absen diambil dari jam SERVER (bukan jam HP) supaya tidak bisa
+--    diakali dengan mengubah jam di HP.
 -- ---------------------------------------------------------------------
 CREATE TABLE absensi (
   id_absensi        INT UNSIGNED     NOT NULL AUTO_INCREMENT,
@@ -165,6 +168,9 @@ CREATE TABLE absensi (
   lng_pulang        DECIMAL(10,7)    NULL,
   status            ENUM('hadir','terlambat','izin','sakit','cuti','alpa') NOT NULL DEFAULT 'hadir',
   menit_terlambat   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  menit_pulang_awal SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Absen pulang sebelum jam pulang unitnya',
+  jarak_masuk       INT UNSIGNED     NULL COMMENT 'Jarak dari titik lokasi sekolah saat absen masuk (meter)',
+  jarak_pulang      INT UNSIGNED     NULL COMMENT 'Jarak dari titik lokasi sekolah saat absen pulang (meter)',
   keterangan        VARCHAR(255)     NULL COMMENT 'Catatan, mis. koreksi admin',
   dikoreksi_oleh    INT UNSIGNED     NULL COMMENT 'Admin yang mengoreksi absen',
   dibuat_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -222,8 +228,6 @@ CREATE TABLE pengaturan (
   id_pengaturan        TINYINT UNSIGNED NOT NULL,
   nama_yayasan         VARCHAR(100)   NOT NULL,
   alamat_yayasan       VARCHAR(255)   NULL,
-  jam_masuk            TIME           NOT NULL DEFAULT '07:00:00',
-  jam_pulang           TIME           NOT NULL DEFAULT '14:00:00',
   toleransi_terlambat  SMALLINT UNSIGNED NOT NULL DEFAULT 15 COMMENT 'Menit',
   lokasi_lat           DECIMAL(10,7)  NULL COMMENT 'Titik lokasi absen (diisi admin)',
   lokasi_lng           DECIMAL(10,7)  NULL,
@@ -231,6 +235,20 @@ CREATE TABLE pengaturan (
   kuota_cuti_tahunan   TINYINT UNSIGNED NOT NULL DEFAULT 12 COMMENT 'Hari per tahun',
   diubah_pada          DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id_pengaturan)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- 9b. jam_kerja_unit : jam masuk & jam pulang guru untuk setiap unit
+--     (mis. guru TK pulang 13.00, guru SD pulang 14.00).
+--     Tombol absen pulang muncul mulai jam pulang PALING AWAL (13.00).
+--     Guru yang absen pulang sebelum jam pulang unitnya tetap bisa,
+--     tetapi dicatat "pulang lebih awal" untuk rekap admin.
+-- ---------------------------------------------------------------------
+CREATE TABLE jam_kerja_unit (
+  unit                 ENUM('KB','TK','SD') NOT NULL,
+  jam_masuk            TIME           NOT NULL DEFAULT '07:00:00',
+  jam_pulang           TIME           NOT NULL DEFAULT '14:00:00',
+  PRIMARY KEY (unit)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -253,10 +271,17 @@ CREATE TABLE percobaan_login (
 -- =====================================================================
 
 -- Pengaturan default (lokasi absen dikosongkan, nanti diisi admin)
-INSERT INTO pengaturan (id_pengaturan, nama_yayasan, alamat_yayasan, jam_masuk, jam_pulang,
+INSERT INTO pengaturan (id_pengaturan, nama_yayasan, alamat_yayasan,
                         toleransi_terlambat, lokasi_lat, lokasi_lng, radius_absen, kuota_cuti_tahunan)
 VALUES (1, 'Yayasan Tiara Harapan Jaya', 'PUP Sektor V Blok O2 No. 1-5, Kel. Bahagia, Kec. Babelan, Kab. Bekasi',
-        '07:00:00', '14:00:00', 15, NULL, NULL, 100, 12);
+        15, NULL, NULL, 100, 12);
+
+-- Jam kerja guru per unit (bisa diubah admin di menu Pengaturan Sistem)
+INSERT INTO jam_kerja_unit (unit, jam_masuk, jam_pulang)
+VALUES
+  ('KB', '07:00:00', '13:00:00'),
+  ('TK', '07:00:00', '13:00:00'),
+  ('SD', '07:00:00', '14:00:00');
 
 -- Akun demo (GANTI kata sandi setelah aplikasi dipakai sungguhan!)
 --   Admin : ADM001 / admin@contoh.test       kata sandi: admin123

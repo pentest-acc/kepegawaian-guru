@@ -20,6 +20,7 @@ erDiagram
     info_kegiatan ||--o{ info_penting : "ditandai"
     pengguna |o--o{ absensi : "mengoreksi (admin)"
     pengguna |o--o{ cuti : "memproses (admin)"
+    jam_kerja_unit ||--o{ pengguna : "jam kerja unit"
 
     pengguna {
         INT id_pengguna PK
@@ -68,6 +69,8 @@ erDiagram
         TIME jam_masuk
         TIME jam_pulang
         ENUM status
+        SMALLINT menit_terlambat
+        SMALLINT menit_pulang_awal
         INT dikoreksi_oleh FK
     }
     cuti {
@@ -90,10 +93,13 @@ erDiagram
         VARCHAR alamat_ip
         DATETIME waktu
     }
-    pengaturan {
-        TINYINT id_pengaturan PK
+    jam_kerja_unit {
+        ENUM unit PK
         TIME jam_masuk
         TIME jam_pulang
+    }
+    pengaturan {
+        TINYINT id_pengaturan PK
         SMALLINT toleransi_terlambat
         DECIMAL lokasi_lat
         DECIMAL lokasi_lng
@@ -189,6 +195,8 @@ Index: `idx_jadwal_guru_hari (id_pengguna, hari)` dan `idx_jadwal_kelas_hari (un
 
 ### 6. `absensi` — absen masuk & pulang (foto + GPS)
 
+Jam masuk/pulang diisi dari jam **server**. Foto disimpan di `backend/uploads/absen/TAHUN-BULAN/` (folder tertutup, hanya bisa diambil lewat API).
+
 | Kolom | Tipe | Keterangan |
 |---|---|---|
 | id_absensi | INT, PK | ID absensi |
@@ -198,7 +206,9 @@ Index: `idx_jadwal_guru_hari (id_pengguna, hari)` dan `idx_jadwal_kelas_hari (un
 | foto_masuk, foto_pulang | VARCHAR(255) | Foto saat absen |
 | lat_masuk, lng_masuk, lat_pulang, lng_pulang | DECIMAL(10,7) | Lokasi GPS saat absen |
 | status | ENUM | hadir, terlambat, izin, sakit, cuti, alpa |
-| menit_terlambat | SMALLINT | Lama terlambat (menit) |
+| menit_terlambat | SMALLINT | Lama terlambat dari jam masuk unit (menit), diisi jika lewat toleransi |
+| menit_pulang_awal | SMALLINT | Absen pulang sebelum jam pulang unitnya (menit), untuk rekap admin |
+| jarak_masuk, jarak_pulang | INT | Jarak dari titik lokasi sekolah saat absen (meter), NULL jika lokasi sekolah belum diatur |
 | keterangan | VARCHAR(255) | Catatan / alasan koreksi |
 | dikoreksi_oleh | INT, FK → pengguna | Admin yang mengoreksi |
 
@@ -232,11 +242,20 @@ Index: `idx_jadwal_guru_hari (id_pengguna, hari)` dan `idx_jadwal_kelas_hari (un
 |---|---|---|
 | id_pengaturan | TINYINT, PK | Selalu 1 |
 | nama_yayasan, alamat_yayasan | VARCHAR | Identitas Yayasan |
-| jam_masuk, jam_pulang | TIME | Default 07:00 & 14:00 |
 | toleransi_terlambat | SMALLINT | Menit (default 15) |
 | lokasi_lat, lokasi_lng | DECIMAL(10,7) | Titik lokasi absen (diisi admin) |
 | radius_absen | SMALLINT | Jarak maksimal absen dari titik lokasi (meter) |
 | kuota_cuti_tahunan | TINYINT | Jatah cuti per tahun (hari) |
+
+### 10. `jam_kerja_unit` — jam masuk & pulang guru per unit
+
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| unit | ENUM('KB','TK','SD'), PK | Unit |
+| jam_masuk | TIME | Bawaan 07:00 |
+| jam_pulang | TIME | Bawaan KB & TK 13:00, SD 14:00 |
+
+Tombol absen pulang di aplikasi muncul mulai jam pulang **paling awal** (13:00). Guru yang absen pulang sebelum jam pulang unitnya sendiri tercatat di `absensi.menit_pulang_awal`. Diatur admin di menu **Pengaturan Sistem**.
 
 ## Riwayat perubahan (migrasi)
 
@@ -244,6 +263,7 @@ Index: `idx_jadwal_guru_hari (id_pengguna, hari)` dan `idx_jadwal_kelas_hari (un
 |---|---|
 | `migrasi/2026-10-09_sesi2.sql` | Sesi 2: kolom `pengguna.gelar` (nama bergelar lama dipisah otomatis), tabel `percobaan_login`, 5 info kegiatan contoh + lampiran, alamat Yayasan |
 | `migrasi/2026-10-10_sesi3.sql` | Sesi 3: index `idx_jadwal_kelas_hari`, 2 akun guru demo, jadwal mengajar contoh (hanya untuk akun demo yang belum punya jadwal). Aman dijalankan ulang |
+| `migrasi/2026-11-09_sesi4.sql` | Sesi 4: tabel `jam_kerja_unit` (jam lama di `pengaturan` dipindahkan lalu kolomnya dihapus), kolom `absensi.menit_pulang_awal`, `jarak_masuk`, `jarak_pulang`. Aman dijalankan ulang |
 
 File migrasi hanya untuk database lama yang datanya ingin dipertahankan. Untuk instalasi baru cukup import `db_kepegawaian_guru.sql`.
 

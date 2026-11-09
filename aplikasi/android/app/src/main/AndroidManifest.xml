@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Izin internet: wajib agar aplikasi bisa terhubung ke backend API -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Izin lokasi GPS: dipakai saat absen (cek jarak ke sekolah) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <!-- usesCleartextTraffic="true" mengizinkan koneksi http:// (tanpa https)
          ke Laragon di laptop. Jika backend sudah di hosting dengan https,
@@ -47,6 +50,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Agar aplikasi bisa membuka kamera untuk foto absen -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE"/>
         </intent>
         <!-- Agar aplikasi bisa membuka link lampiran (PDF) di browser -->
         <intent>

@@ -24,6 +24,10 @@ dependencies:
   intl: ^0.20.3
   # Membuka lampiran (PDF) di browser/aplikasi lain
   url_launcher: ^6.3.3
+  # Absen: mengambil foto selfie dari kamera
+  image_picker: ^1.2.4
+  # Absen: membaca lokasi GPS
+  geolocator: ^14.1.2
 
 dev_dependencies:
   flutter_test:

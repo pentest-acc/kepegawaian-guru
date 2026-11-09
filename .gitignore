@@ -8,3 +8,8 @@ desktop.ini
 
 # Pengaturan Docker pribadi (lihat .env.example)
 .env
+
+# Foto absen guru (data pribadi, tidak ikut di-commit)
+backend/uploads/absen/*
+!backend/uploads/absen/.htaccess
+!backend/uploads/absen/index.html

@@ -15,11 +15,22 @@ Dikerjakan bertahap, mulai dari dasar seperti programmer pada umumnya.
 | **1** | Fondasi proyek, rancangan database lengkap, API login/register, animasi splash & loading, Login, Register, Beranda Guru | ✅ Selesai |
 | **2** | Info Kegiatan (daftar, cari, tandai penting, detail, unduh lampiran), banner info bergulir otomatis di Beranda, logo & foto Yayasan, nama + gelar terpisah, pengamanan login | ✅ Selesai |
 | **3** | Jadwal Mengajar dengan **sistem jadwal mingguan** (guru: tab Senin–Jumat + pindah minggu; admin: atur jadwal per guru + cek bentrok), **Docker** | ✅ Selesai |
-| 4 | Absen (foto + GPS, jam masuk/pulang) | ⏳ Berikutnya |
-| 5 | Riwayat Absen (rekap per bulan, jam kerja) | ⏳ |
+| **4** | **Absen** foto selfie + lokasi GPS (jam masuk/pulang dari jam server, terlambat, pulang lebih awal), admin **Pengaturan Sistem** (titik lokasi sekolah, radius, jam kerja per unit) | ✅ Selesai |
+| 5 | Riwayat Absen (rekap per bulan, jam kerja) | ⏳ Berikutnya |
 | 6 | Cuti / Izin (pengajuan, sisa kuota, status) | ⏳ |
 | 7 | Pengaturan & Profil | ⏳ |
-| 8+ | Halaman Admin: dashboard, data guru, kelola info, monitoring absensi, persetujuan cuti, laporan PDF/Excel, pengaturan sistem (kelola jadwal sudah dibuat di Sesi 3) | ⏳ |
+| 8+ | Halaman Admin: dashboard, data guru, kelola info, monitoring absensi, persetujuan cuti, laporan PDF/Excel (kelola jadwal sudah dibuat di Sesi 3, pengaturan absen di Sesi 4) | ⏳ |
+
+### Yang baru di Sesi 4
+
+- **Absen (guru)** sesuai desain:
+  1. Tekan **Upload Gambar** → kamera depan terbuka → ambil foto selfie.
+  2. Lokasi GPS otomatis dideteksi dan ditampilkan di kartu abu-abu: hijau jika **di area sekolah**, merah jika **di luar area** (tombol **Upload Absen** tidak bisa ditekan).
+  3. Tekan **Upload Absen**. Setelah absen masuk, tombol hilang dan tampil **Jam Masuk** beserta ikon lokasi & foto tersimpan.
+  4. Tombol **Absen Pulang** muncul otomatis mulai **pukul 13.00** (jam pulang guru TK). Guru SD juga sudah bisa absen pulang, tetapi jika sebelum jam pulang unitnya (14.00) aplikasi meminta konfirmasi dan absennya tercatat **pulang lebih awal** untuk rekap admin.
+- **Aturan absen dihitung di server**: jam absen memakai jam server (tidak bisa diakali dengan mengubah jam HP), terlambat jika lewat jam masuk + toleransi (bawaan 15 menit), hari Minggu & hari libur tidak ada absen, aplikasi **Fake GPS** ditolak, dan foto absen bersifat pribadi (hanya bisa dilihat guru pemilik & admin).
+- **Pengaturan Sistem (admin)**: atur **titik lokasi sekolah** (cukup tekan *Gunakan lokasi saya sekarang* saat berada di sekolah), **radius absen**, **toleransi terlambat**, dan **jam masuk/pulang setiap unit** (bawaan KB & TK 07.00–13.00, SD 07.00–14.00).
+- Kotak "Akun demo (mode debug)" di halaman login dihapus.
 
 ### Yang baru di Sesi 3
 
@@ -154,7 +165,7 @@ flutter pub get
 
       ![Klik Import](docs/gambar/import-4-klik-import.png)
 
-   5. Jika berhasil, muncul kotak hijau **"Import has been successfully finished, 29 queries executed"** dan database `db_kepegawaian_guru` muncul di panel kiri (klik untuk melihat 9 tabelnya).
+   5. Jika berhasil, muncul kotak hijau **"Import has been successfully finished, … queries executed"** (jumlahnya bisa berbeda dengan gambar) dan database `db_kepegawaian_guru` muncul di panel kiri (klik untuk melihat 11 tabelnya).
 
       ![Import berhasil](docs/gambar/import-5-berhasil.png)
 
@@ -228,6 +239,12 @@ File APK ada di `aplikasi/build/app/outputs/flutter-apk/app-release.apk`.
 
 Bisa juga membuat akun guru sendiri lewat tombol **Daftar di sini** di halaman login.
 
+Mencoba absen:
+
+1. Login sebagai **Admin** → **Pengaturan Sistem** → tekan **Gunakan lokasi saya sekarang** → **Simpan Pengaturan**. (Boleh dilewati; jika titik lokasi kosong, jarak tidak dicek.)
+2. Logout, login sebagai guru → menu **Absen** → **Upload Gambar** → **Upload Absen**.
+3. Di Chrome laptop, *Upload Gambar* membuka jendela pilih file (bukan kamera) dan Chrome akan meminta izin lokasi: pilih **Allow/Izinkan**. Di HP, yang terbuka adalah kamera depan.
+
 Mencoba sistem jadwal: login sebagai **Admin** → **Kelola Jadwal Mengajar** → pilih guru → ubah/tambah jadwal. Lalu logout, login sebagai guru tersebut → menu **Jadwal Mengajar**: perubahan langsung terlihat, dan berlaku juga di minggu-minggu berikutnya (tekan tombol **›**).
 
 ---
@@ -246,14 +263,23 @@ flutter pub get
 
 > Jika sesi berikutnya mengubah database, akan ada file SQL tambahan + petunjuknya. Jangan import ulang `db_kepegawaian_guru.sql` kalau database sudah berisi data asli, karena file itu menghapus tabel lama.
 
-### Pembaruan database Sesi 3 (wajib, cukup sekali)
+### Pembaruan database Sesi 4 (wajib, cukup sekali)
 
-Sesi 3 menambah index untuk pengecekan jadwal bentrok, 2 akun guru demo, dan jadwal contoh. Pilih **salah satu**:
+Sesi 4 menambah tabel `jam_kerja_unit` (jam masuk/pulang per unit) dan kolom baru di tabel `absensi`. Pilih **salah satu**:
+
+- **Cara mudah (data lama boleh hilang)** — import ulang `database/db_kepegawaian_guru.sql` lewat phpMyAdmin seperti langkah 3.
+- **Cara aman (data lama dipertahankan)** — di phpMyAdmin klik tab **Import**, pilih file `database/migrasi/2026-11-09_sesi4.sql`, lalu klik **Import**. (Jika migrasi Sesi 3 belum pernah dijalankan, jalankan `2026-10-10_sesi3.sql` dulu.)
+
+Setelah itu jalankan `flutter pub get`, lalu **stop** aplikasi dan jalankan ulang (`flutter run`), karena ada paket baru (`image_picker` untuk kamera dan `geolocator` untuk GPS). Untuk HP Android, aplikasi akan meminta **izin lokasi** saat pertama kali absen: pilih **Izinkan**.
+
+> Pengguna Docker: jalankan `docker compose up -d --build` (ada perubahan kecil di resep backend), lalu import file migrasi di phpMyAdmin Docker (<http://localhost:8081>), atau `docker compose down -v` lalu `docker compose up -d` untuk mulai dari database baru.
+
+### Pembaruan database Sesi 3
+
+Hanya untuk yang belum memperbarui database di Sesi 3. Sesi 3 menambah index untuk pengecekan jadwal bentrok, 2 akun guru demo, dan jadwal contoh. Pilih **salah satu**:
 
 - **Cara mudah (data lama boleh hilang)** — import ulang `database/db_kepegawaian_guru.sql` lewat phpMyAdmin seperti langkah 3.
 - **Cara aman (data lama dipertahankan)** — di phpMyAdmin klik tab **Import**, pilih file `database/migrasi/2026-10-10_sesi3.sql`, lalu klik **Import**. Jadwal contoh hanya ditambahkan untuk akun demo yang belum punya jadwal. (Jika migrasi Sesi 2 belum pernah dijalankan, jalankan `2026-10-09_sesi2.sql` dulu.)
-
-Setelah itu jalankan `flutter pub get`, lalu **stop** aplikasi dan jalankan ulang (`flutter run`), karena ada paket baru (`flutter_localizations`).
 
 ### Pembaruan database Sesi 2
 
@@ -378,5 +404,9 @@ flutter test
 | `docker` tidak dikenali / *"cannot connect to the Docker daemon"* | Pastikan Docker Desktop sudah dibuka dan statusnya **Engine running**, lalu tutup & buka lagi terminal VS Code. |
 | Docker: *"port is already allocated"* | Port 8080/8081/3307 dipakai aplikasi lain (mis. Laragon). Matikan aplikasi itu, atau salin `.env.example` menjadi `.env` dan ganti nomor portnya. |
 | Docker: halaman API menampilkan *"Gagal terhubung ke database"* | MySQL di Docker masih menyiapkan database (± 30 detik saat pertama kali). Cek dengan `docker compose ps` sampai `db` berstatus **healthy**. |
+| `Failed to launch browser ... msedge.exe` saat `flutter run` | Flutter memakai Edge karena Chrome tidak terdeteksi, dan Edge gagal dibuka. Pakai `flutter run -d chrome` (pasang Google Chrome jika belum ada), atau tutup semua Edge lewat Task Manager lalu coba lagi. Cara cadangan: `flutter run -d web-server --web-port 5000`, lalu buka <http://localhost:5000> di browser apa saja. |
+| Absen: "Lokasi belum terbaca" | Nyalakan GPS/lokasi di HP dan izinkan akses lokasi untuk aplikasi. Di Chrome laptop, klik ikon gembok/lokasi di address bar → **Allow**. Lokasi di browser hanya bisa dibaca dari alamat `localhost` atau `https`. |
+| Absen: "Di luar area sekolah" padahal sudah di sekolah | Titik lokasi sekolah di **Pengaturan Sistem** (admin) belum tepat, atau radiusnya terlalu kecil. Atur ulang dengan **Gunakan lokasi saya sekarang** saat berada di sekolah, atau perbesar radiusnya (mis. 150 m). |
+| Absen: "Foto absen gagal disimpan" | Folder `backend/uploads/absen` harus bisa ditulis oleh Apache. Di Laragon/Windows biasanya otomatis bisa; di Linux jalankan `chmod 777 backend/uploads/absen`. |
 | Jadwal Mengajar guru kosong | Admin belum mengatur jadwal guru tersebut (Kelola Jadwal Mengajar), atau database belum diperbarui ke Sesi 3. |
 | Folder proyek bukan `kepegawaian-guru` | Ubah `folderProyek` di `aplikasi/lib/config/api_config.dart`. |

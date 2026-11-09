@@ -8,7 +8,7 @@ API sederhana tanpa framework: **satu file PHP = satu endpoint**. Aplikasi Flutt
 backend/
 ├── .htaccess          # meneruskan header Authorization ke PHP (Apache Laragon/XAMPP)
 ├── config/
-│   ├── app.php        # zona waktu, masa berlaku token, batas gagal login, tampilkan error
+│   ├── app.php        # zona waktu, masa berlaku token, batas gagal login, jam buka absen, tampilkan error
 │   └── database.php   # host, nama database, user, password MySQL (bisa diisi lewat variabel lingkungan, dipakai Docker)
 ├── core/              # fungsi bantu yang dipakai semua endpoint
 │   ├── bootstrap.php  # header JSON + CORS, penanganan error
@@ -16,7 +16,8 @@ backend/
 │   ├── respon.php     # kirim_json(), ambil_input(), url_backend(), dll.
 │   ├── auth.php       # buat token, cek login (wajib_login), dll.
 │   ├── info.php       # query & format data info kegiatan
-│   └── jadwal.php     # daftar hari/unit, urutan & format data jadwal mengajar
+│   ├── jadwal.php     # daftar hari/unit, urutan & format data jadwal mengajar
+│   └── absen.php      # aturan absen: jam kerja unit, libur, jarak GPS, simpan foto
 ├── api/
 │   ├── index.php      # cek API & database
 │   ├── auth/
@@ -30,15 +31,24 @@ backend/
 │   │   └── tandai.php
 │   ├── jadwal/
 │   │   └── saya.php       # jadwal mengajar guru yang sedang login
+│   ├── absen/
+│   │   ├── hari_ini.php   # status absen hari ini + aturan (jam kerja, lokasi)
+│   │   ├── masuk.php      # absen masuk (foto + GPS)
+│   │   ├── pulang.php     # absen pulang (foto + GPS)
+│   │   └── foto.php       # ambil foto absen (wajib login)
 │   └── admin/             # khusus role admin
 │       ├── guru.php       # daftar guru (untuk memilih guru)
-│       └── jadwal/
-│           ├── daftar.php
-│           ├── simpan.php # tambah / ubah + cek jadwal bentrok
-│           └── hapus.php
+│       ├── jadwal/
+│       │   ├── daftar.php
+│       │   ├── simpan.php # tambah / ubah + cek jadwal bentrok
+│       │   └── hapus.php
+│       └── pengaturan/
+│           ├── absen.php        # lokasi sekolah, radius, toleransi, jam kerja unit
+│           └── simpan_absen.php
 └── uploads/
     ├── .htaccess      # melarang file PHP dijalankan di folder unggahan
-    └── lampiran/      # file lampiran info kegiatan (PDF, dll.)
+    ├── lampiran/      # file lampiran info kegiatan (PDF, dll.)
+    └── absen/         # foto absen (PRIBADI: tidak bisa dibuka langsung, tidak ikut di-commit)
 ```
 
 ## Format jawaban
@@ -70,6 +80,12 @@ Alamat dasar (Laragon/XAMPP): `http://localhost/kepegawaian-guru/backend/api`
 | GET | `/admin/jadwal/daftar.php?id_pengguna=2` | Admin | Seluruh jadwal mingguan seorang guru |
 | POST | `/admin/jadwal/simpan.php` | Admin | Tambah jadwal, atau ubah jika mengirim `id_jadwal` |
 | POST | `/admin/jadwal/hapus.php` | Admin | Hapus jadwal: `{"id_jadwal": 5}` |
+| GET | `/absen/hari_ini.php` | Guru | Status absen hari ini + jam server, libur, jam kerja unit, jam tombol pulang muncul, titik lokasi sekolah |
+| POST | `/absen/masuk.php` | Guru | Absen masuk, **multipart/form-data**: `foto`, `lat`, `lng`, `lokasi_palsu` (opsional) |
+| POST | `/absen/pulang.php` | Guru | Absen pulang, isian sama dengan absen masuk |
+| GET | `/absen/foto.php?id_absensi=5&jenis=masuk` | Ya | File foto absen (`masuk`/`pulang`). Guru hanya fotonya sendiri, admin semua |
+| GET | `/admin/pengaturan/absen.php` | Admin | Pengaturan absen |
+| POST | `/admin/pengaturan/simpan_absen.php` | Admin | Simpan pengaturan absen (lihat contoh di bawah) |
 
 Endpoint yang butuh login wajib mengirim header:
 
@@ -77,7 +93,7 @@ Endpoint yang butuh login wajib mengirim header:
 Authorization: Bearer <token dari login>
 ```
 
-Endpoint bertanda **Admin** menjawab `403` jika yang login bukan admin.
+Endpoint bertanda **Admin** menjawab `403` jika yang login bukan admin, begitu juga endpoint **Guru** jika yang login bukan guru.
 
 ### POST `/auth/login.php`
 
@@ -208,6 +224,71 @@ Contoh `jadwal/saya.php?dari=2026-10-05&sampai=2026-10-10` (dipotong):
 
   Contoh pesan: `"Kelas SD 3B pada jam itu sudah diajar oleh Ahmad Fauzi, S.Pd.I. (Pendidikan Agama Islam, 09:30-10:40)."`
 
+### Aturan absen
+
+| Aturan | Penjelasan |
+|---|---|
+| Jam absen | Selalu memakai jam **server** (bukan jam HP). |
+| Hari tanpa absen | Hari Minggu dan tanggal di tabel `hari_libur` (`422`). Guru berstatus izin/sakit/cuti hari itu juga tidak perlu absen (`409`). |
+| Absen masuk | Dibuka mulai `absen_masuk_mulai` (`config/app.php`, bawaan 05.00) sampai jam pulang unit guru. Lewat dari jam masuk unit + toleransi = status `terlambat` dan `menit_terlambat` dihitung dari jam masuk. |
+| Absen pulang | Dibuka mulai jam pulang **paling awal** di tabel `jam_kerja_unit` (bawaan 13.00, jam pulang TK). Jika sebelum jam pulang unit guru sendiri, dicatat di `menit_pulang_awal`. |
+| Lokasi | Jika admin sudah mengatur titik lokasi sekolah, jarak (rumus Haversine) harus ≤ radius. Jika belum diatur, lokasi tetap disimpan tanpa pengecekan jarak. `lokasi_palsu=1` (Fake GPS terdeteksi di HP) ditolak. |
+| Foto | Wajib, JPG/PNG/WEBP (dicek isinya, bukan hanya nama file), maks. `maks_foto_absen_kb` (bawaan 5 MB). Disimpan di `uploads/absen/TAHUN-BULAN/` dengan nama acak. |
+| Dobel absen | Satu baris absensi per guru per tanggal; absen masuk/pulang kedua kali dijawab `409`. |
+
+### POST `/absen/masuk.php`
+
+```powershell
+curl.exe -X POST http://localhost/kepegawaian-guru/backend/api/absen/masuk.php `
+  -H "Authorization: Bearer <token>" `
+  -F "foto=@selfie.jpg" -F "lat=-6.1703500" -F "lng=107.0252500"
+```
+
+Jawaban `201`:
+
+```json
+{
+  "sukses": true,
+  "pesan": "Absen masuk berhasil pukul 07.21. Kamu terlambat 21 menit.",
+  "data": {
+    "absensi": {
+      "id_absensi": 1,
+      "tanggal": "2026-11-10",
+      "jam_masuk": "07:21",
+      "jam_pulang": null,
+      "status": "terlambat",
+      "menit_terlambat": 21,
+      "menit_pulang_awal": 0,
+      "jarak_masuk": 24,
+      "jarak_pulang": null,
+      "ada_foto_masuk": true,
+      "ada_foto_pulang": false,
+      "keterangan": null
+    }
+  }
+}
+```
+
+Contoh jawaban gagal `422`: `"Kamu berada ± 1,1 km dari sekolah. Absen hanya bisa dilakukan dalam radius 100 m dari sekolah."` (dengan `data.jarak` & `data.radius`).
+
+### POST `/admin/pengaturan/simpan_absen.php`
+
+```json
+{
+  "lokasi_lat": -6.1702113,
+  "lokasi_lng": 107.0251456,
+  "radius_absen": 100,
+  "toleransi_terlambat": 15,
+  "jam_kerja": [
+    {"unit": "KB", "jam_masuk": "07:00", "jam_pulang": "13:00"},
+    {"unit": "TK", "jam_masuk": "07:00", "jam_pulang": "13:00"},
+    {"unit": "SD", "jam_masuk": "07:00", "jam_pulang": "14:00"}
+  ]
+}
+```
+
+`lokasi_lat`/`lokasi_lng` boleh `null` (tanpa cek lokasi). Radius 20–5000 m, toleransi 0–180 menit, ketiga unit wajib ada dan jam pulang harus setelah jam masuk.
+
 ## Mencoba API tanpa aplikasi
 
 Buka di browser: <http://localhost/kepegawaian-guru/backend/api/>. Jika muncul `"sukses": true`, berarti PHP dan database sudah tersambung.
@@ -226,6 +307,7 @@ Invoke-RestMethod -Method Post -Uri http://localhost/kepegawaian-guru/backend/ap
 - Semua query memakai *prepared statement* (aman dari SQL Injection).
 - Login dikunci sementara setelah 5 kali salah kata sandi (per akun), mencegah tebak-tebakan kata sandi.
 - Folder `uploads/` tidak bisa menjalankan file PHP (lihat `uploads/.htaccess`), jadi file unggahan tidak bisa dipakai untuk menyusupkan skrip.
+- Folder `uploads/absen/` tertutup sama sekali (`Require all denied`); foto absen hanya bisa diambil lewat `api/absen/foto.php` oleh guru pemiliknya atau admin. Foto absen juga tidak ikut di-commit ke GitHub (lihat `.gitignore`).
 - Saat sudah di hosting: ubah `tampilkan_error` menjadi `false` di `config/app.php` dan pakai user database selain `root`.
 
 ## Konfigurasi database lewat variabel lingkungan

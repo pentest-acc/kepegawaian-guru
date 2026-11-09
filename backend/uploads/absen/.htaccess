@@ -1,0 +1,3 @@
+# Foto absen bersifat pribadi: tidak boleh dibuka langsung lewat browser.
+# Aplikasi mengambilnya lewat api/absen/foto.php (wajib login).
+Require all denied

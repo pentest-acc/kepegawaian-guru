@@ -33,7 +33,8 @@ class TombolUtama extends StatelessWidget {
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(teks),
+                  // Flexible: teks panjang di layar sempit tidak meluber
+                  Flexible(child: Text(teks, overflow: TextOverflow.ellipsis)),
                   if (ikon != null) ...[
                     const SizedBox(width: 8),
                     Icon(ikon, size: 20),

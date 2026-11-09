@@ -6,6 +6,7 @@ import '../../models/pengguna.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/loading_overlay.dart';
 import 'admin_pilih_guru_screen.dart';
+import 'pengaturan_sistem_screen.dart';
 
 /// Halaman awal Admin (sementara).
 ///
@@ -45,6 +46,8 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     switch (nama) {
       case 'Kelola Jadwal Mengajar':
         return const AdminPilihGuruScreen();
+      case 'Pengaturan Sistem':
+        return const PengaturanSistemScreen();
       default:
         return null;
     }

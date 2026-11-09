@@ -131,12 +131,13 @@ void main() {
       bungkus(BerandaScreen(pengguna: Pengguna.fromJson(jsonGuruContoh))),
     );
 
-    final menuAbsen = find.text('Absen');
-    await tester.ensureVisible(menuAbsen);
-    await tester.tap(menuAbsen);
+    // Menu yang belum dibuat membuka halaman "Segera hadir"
+    final menuRiwayat = find.text('Riwayat Absen');
+    await tester.ensureVisible(menuRiwayat);
+    await tester.tap(menuRiwayat);
     await tester.pumpAndSettle();
 
-    expect(find.text('Fitur Absen'), findsOneWidget);
+    expect(find.text('Fitur Riwayat Absen'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Kembali'));
     await tester.pumpAndSettle();

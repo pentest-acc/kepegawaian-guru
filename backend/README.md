@@ -32,7 +32,7 @@ backend/
 │   ├── jadwal/
 │   │   └── saya.php       # jadwal mengajar guru yang sedang login
 │   ├── absen/
-│   │   ├── hari_ini.php   # status absen hari ini + aturan (jam kerja, lokasi)
+│   │   ├── hari_ini.php   # status absen hari ini + aturan (jam kerja, daftar lokasi)
 │   │   ├── masuk.php      # absen masuk (foto + GPS)
 │   │   ├── pulang.php     # absen pulang (foto + GPS)
 │   │   └── foto.php       # ambil foto absen (wajib login)
@@ -42,8 +42,12 @@ backend/
 │       │   ├── daftar.php
 │       │   ├── simpan.php # tambah / ubah + cek jadwal bentrok
 │       │   └── hapus.php
+│       ├── lokasi/          # banyak lokasi absen (mis. 3 gedung)
+│       │   ├── daftar.php
+│       │   ├── simpan.php   # tambah / ubah
+│       │   └── hapus.php
 │       └── pengaturan/
-│           ├── absen.php        # lokasi sekolah, radius, toleransi, jam kerja unit
+│           ├── absen.php        # toleransi terlambat, jam kerja unit
 │           └── simpan_absen.php
 └── uploads/
     ├── .htaccess      # melarang file PHP dijalankan di folder unggahan
@@ -80,11 +84,14 @@ Alamat dasar (Laragon/XAMPP): `http://localhost/kepegawaian-guru/backend/api`
 | GET | `/admin/jadwal/daftar.php?id_pengguna=2` | Admin | Seluruh jadwal mingguan seorang guru |
 | POST | `/admin/jadwal/simpan.php` | Admin | Tambah jadwal, atau ubah jika mengirim `id_jadwal` |
 | POST | `/admin/jadwal/hapus.php` | Admin | Hapus jadwal: `{"id_jadwal": 5}` |
-| GET | `/absen/hari_ini.php` | Guru | Status absen hari ini + jam server, libur, jam kerja unit, jam tombol pulang muncul, titik lokasi sekolah |
+| GET | `/absen/hari_ini.php` | Guru | Status absen hari ini + jam server, libur, jam kerja unit, jam tombol pulang muncul, daftar lokasi absen aktif (`lokasi_absen`) |
 | POST | `/absen/masuk.php` | Guru | Absen masuk, **multipart/form-data**: `foto`, `lat`, `lng`, `lokasi_palsu` (opsional) |
 | POST | `/absen/pulang.php` | Guru | Absen pulang, isian sama dengan absen masuk |
 | GET | `/absen/foto.php?id_absensi=5&jenis=masuk` | Ya | File foto absen (`masuk`/`pulang`). Guru hanya fotonya sendiri, admin semua |
-| GET | `/admin/pengaturan/absen.php` | Admin | Pengaturan absen |
+| GET | `/admin/lokasi/daftar.php` | Admin | Semua lokasi absen (aktif & nonaktif) beserta nomor urutnya (Lokasi 1, 2, 3, ...) |
+| POST | `/admin/lokasi/simpan.php` | Admin | Tambah lokasi, atau ubah jika mengirim `id_lokasi` (lihat contoh di bawah) |
+| POST | `/admin/lokasi/hapus.php` | Admin | Hapus lokasi: `{"id_lokasi": 2}` (riwayat absen tetap ada) |
+| GET | `/admin/pengaturan/absen.php` | Admin | Pengaturan absen (toleransi, jam kerja unit, jumlah lokasi aktif) |
 | POST | `/admin/pengaturan/simpan_absen.php` | Admin | Simpan pengaturan absen (lihat contoh di bawah) |
 
 Endpoint yang butuh login wajib mengirim header:
@@ -232,7 +239,7 @@ Contoh `jadwal/saya.php?dari=2026-10-05&sampai=2026-10-10` (dipotong):
 | Hari tanpa absen | Hari Minggu dan tanggal di tabel `hari_libur` (`422`). Guru berstatus izin/sakit/cuti hari itu juga tidak perlu absen (`409`). |
 | Absen masuk | Dibuka mulai `absen_masuk_mulai` (`config/app.php`, bawaan 05.00) sampai jam pulang unit guru. Lewat dari jam masuk unit + toleransi = status `terlambat` dan `menit_terlambat` dihitung dari jam masuk. |
 | Absen pulang | Dibuka mulai jam pulang **paling awal** di tabel `jam_kerja_unit` (bawaan 13.00, jam pulang TK). Jika sebelum jam pulang unit guru sendiri, dicatat di `menit_pulang_awal`. |
-| Lokasi | Jika admin sudah mengatur titik lokasi sekolah, jarak (rumus Haversine) harus ≤ radius. Jika belum diatur, lokasi tetap disimpan tanpa pengecekan jarak. `lokasi_palsu=1` (Fake GPS terdeteksi di HP) ditolak. |
+| Lokasi | Admin bisa menambah **banyak lokasi absen** (tabel `lokasi_absen`). Guru harus berada di dalam radius **salah satu** lokasi yang aktif (jarak dihitung dengan rumus Haversine); yang dicatat di absensi adalah lokasi terdekat beserta jaraknya (`id_lokasi_masuk`/`jarak_masuk`, dst). Jika belum ada lokasi sama sekali, lokasi guru tetap disimpan tanpa pengecekan jarak. `lokasi_palsu=1` (Fake GPS terdeteksi di HP) ditolak. |
 | Foto | Wajib, JPG/PNG/WEBP (dicek isinya, bukan hanya nama file), maks. `maks_foto_absen_kb` (bawaan 5 MB). Disimpan di `uploads/absen/TAHUN-BULAN/` dengan nama acak. |
 | Dobel absen | Satu baris absensi per guru per tanggal; absen masuk/pulang kedua kali dijawab `409`. |
 
@@ -249,7 +256,7 @@ Jawaban `201`:
 ```json
 {
   "sukses": true,
-  "pesan": "Absen masuk berhasil pukul 07.21. Kamu terlambat 21 menit.",
+  "pesan": "Absen masuk berhasil pukul 07.21 di Gedung SD. Kamu terlambat 21 menit.",
   "data": {
     "absensi": {
       "id_absensi": 1,
@@ -259,7 +266,9 @@ Jawaban `201`:
       "status": "terlambat",
       "menit_terlambat": 21,
       "menit_pulang_awal": 0,
+      "lokasi_masuk": "Gedung SD",
       "jarak_masuk": 24,
+      "lokasi_pulang": null,
       "jarak_pulang": null,
       "ada_foto_masuk": true,
       "ada_foto_pulang": false,
@@ -269,15 +278,29 @@ Jawaban `201`:
 }
 ```
 
-Contoh jawaban gagal `422`: `"Kamu berada ± 1,1 km dari sekolah. Absen hanya bisa dilakukan dalam radius 100 m dari sekolah."` (dengan `data.jarak` & `data.radius`).
+Contoh jawaban gagal `422`: `"Kamu berada ± 400 m dari lokasi absen terdekat (Gedung KB). Absen hanya bisa dilakukan dalam radius 100 m dari lokasi tersebut."` (dengan `data.lokasi`, `data.jarak` & `data.radius`).
+
+### POST `/admin/lokasi/simpan.php`
+
+```json
+{
+  "id_lokasi": 2,
+  "nama": "Gedung SD",
+  "lat": -6.1750000,
+  "lng": 107.0300000,
+  "radius": 150,
+  "aktif": true
+}
+```
+
+- Tanpa `id_lokasi` = tambah baru (`201`), dengan `id_lokasi` = ubah (`200`). Jawaban berisi `data.lokasi` (termasuk `nomor`).
+- Nama 2–100 karakter dan tidak boleh sama dengan lokasi lain (`409`), radius 20–5000 m, maksimal 20 lokasi.
+- `"aktif": false` menutup lokasi sementara (tidak dipakai untuk absen, tetapi tidak dihapus).
 
 ### POST `/admin/pengaturan/simpan_absen.php`
 
 ```json
 {
-  "lokasi_lat": -6.1702113,
-  "lokasi_lng": 107.0251456,
-  "radius_absen": 100,
   "toleransi_terlambat": 15,
   "jam_kerja": [
     {"unit": "KB", "jam_masuk": "07:00", "jam_pulang": "13:00"},
@@ -287,7 +310,7 @@ Contoh jawaban gagal `422`: `"Kamu berada ± 1,1 km dari sekolah. Absen hanya bi
 }
 ```
 
-`lokasi_lat`/`lokasi_lng` boleh `null` (tanpa cek lokasi). Radius 20–5000 m, toleransi 0–180 menit, ketiga unit wajib ada dan jam pulang harus setelah jam masuk.
+Toleransi 0–180 menit, ketiga unit wajib ada dan jam pulang harus setelah jam masuk. Lokasi absen diatur lewat `admin/lokasi/*.php`.
 
 ## Mencoba API tanpa aplikasi
 

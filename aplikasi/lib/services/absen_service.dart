@@ -14,7 +14,8 @@ class HasilAbsen {
 
 /// API absen.
 /// - Guru: [hariIni], [absenMasuk], [absenPulang], [ambilFoto]
-/// - Admin: [pengaturan], [simpanPengaturan]
+/// - Admin: [daftarLokasi], [simpanLokasi], [hapusLokasi], [pengaturan],
+///   [simpanPengaturan]
 class AbsenService {
   AbsenService({ApiService? api}) : _api = api ?? ApiService();
 
@@ -62,6 +63,25 @@ class AbsenService {
       _api.ambilBerkas('absen/foto.php?id_absensi=$idAbsensi&jenis=$jenis');
 
   // ------------------------------- Admin ------------------------------
+
+  Future<List<LokasiAbsen>> daftarLokasi() async {
+    final respon = await _api.get('admin/lokasi/daftar.php');
+    final data = respon['data'] as Map<String, dynamic>;
+    return (data['lokasi'] as List)
+        .map((e) => LokasiAbsen.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Tambah (jika [lokasi].idLokasi null) atau ubah lokasi absen.
+  Future<LokasiAbsen> simpanLokasi(LokasiAbsen lokasi) async {
+    final respon = await _api.post('admin/lokasi/simpan.php', lokasi.toJson());
+    final data = respon['data'] as Map<String, dynamic>;
+    return LokasiAbsen.fromJson(data['lokasi'] as Map<String, dynamic>);
+  }
+
+  Future<void> hapusLokasi(int idLokasi) async {
+    await _api.post('admin/lokasi/hapus.php', {'id_lokasi': idLokasi});
+  }
 
   Future<PengaturanAbsen> pengaturan() async {
     final respon = await _api.get('admin/pengaturan/absen.php');

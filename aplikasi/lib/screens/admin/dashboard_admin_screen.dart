@@ -5,6 +5,7 @@ import '../../config/app_routes.dart';
 import '../../models/pengguna.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/loading_overlay.dart';
+import 'admin_lokasi_absen_screen.dart';
 import 'admin_pilih_guru_screen.dart';
 import 'pengaturan_sistem_screen.dart';
 
@@ -28,6 +29,7 @@ class DashboardAdminScreen extends StatefulWidget {
     (Icons.campaign_rounded, 'Kelola Info Kegiatan'),
     (Icons.calendar_month_rounded, 'Kelola Jadwal Mengajar'),
     (Icons.fact_check_rounded, 'Monitoring Absensi'),
+    (Icons.add_location_alt_rounded, 'Lokasi Absen'),
     (Icons.approval_rounded, 'Persetujuan Cuti'),
     (Icons.print_rounded, 'Laporan (PDF/Excel)'),
     (Icons.tune_rounded, 'Pengaturan Sistem'),
@@ -46,6 +48,8 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     switch (nama) {
       case 'Kelola Jadwal Mengajar':
         return const AdminPilihGuruScreen();
+      case 'Lokasi Absen':
+        return const AdminLokasiAbsenScreen();
       case 'Pengaturan Sistem':
         return const PengaturanSistemScreen();
       default:

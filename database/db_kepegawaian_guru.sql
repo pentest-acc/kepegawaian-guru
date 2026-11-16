@@ -36,6 +36,7 @@ DROP TABLE IF EXISTS cuti;
 DROP TABLE IF EXISTS hari_libur;
 DROP TABLE IF EXISTS pengaturan;
 DROP TABLE IF EXISTS jam_kerja_unit;
+DROP TABLE IF EXISTS lokasi_absen;
 DROP TABLE IF EXISTS token_login;
 DROP TABLE IF EXISTS percobaan_login;
 DROP TABLE IF EXISTS pengguna;
@@ -149,6 +150,25 @@ CREATE TABLE jadwal_mengajar (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
+-- 5b. lokasi_absen : titik-titik lokasi absen (gedung/sekolah Yayasan).
+--     Guru boleh absen jika berada di dalam radius SALAH SATU lokasi
+--     yang aktif; aplikasi menampilkan lokasi yang paling dekat.
+--     Jika belum ada lokasi sama sekali, jarak tidak dicek.
+-- ---------------------------------------------------------------------
+CREATE TABLE lokasi_absen (
+  id_lokasi         INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  nama              VARCHAR(100)     NOT NULL COMMENT 'Contoh: Gedung SD',
+  lat               DECIMAL(10,7)    NOT NULL,
+  lng               DECIMAL(10,7)    NOT NULL,
+  radius            SMALLINT UNSIGNED NOT NULL DEFAULT 100 COMMENT 'Meter',
+  aktif             BOOLEAN          NOT NULL DEFAULT TRUE,
+  dibuat_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  diubah_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_lokasi),
+  UNIQUE KEY uk_lokasi_nama (nama)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
 -- 6. absensi : absen masuk & pulang guru (foto + lokasi GPS)
 --    satu guru hanya punya satu baris absensi per tanggal.
 --    Jam absen diambil dari jam SERVER (bukan jam HP) supaya tidak bisa
@@ -169,8 +189,10 @@ CREATE TABLE absensi (
   status            ENUM('hadir','terlambat','izin','sakit','cuti','alpa') NOT NULL DEFAULT 'hadir',
   menit_terlambat   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   menit_pulang_awal SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Absen pulang sebelum jam pulang unitnya',
-  jarak_masuk       INT UNSIGNED     NULL COMMENT 'Jarak dari titik lokasi sekolah saat absen masuk (meter)',
-  jarak_pulang      INT UNSIGNED     NULL COMMENT 'Jarak dari titik lokasi sekolah saat absen pulang (meter)',
+  id_lokasi_masuk   INT UNSIGNED     NULL COMMENT 'Lokasi absen terdekat saat absen masuk',
+  jarak_masuk       INT UNSIGNED     NULL COMMENT 'Jarak ke lokasi absen terdekat saat absen masuk (meter)',
+  id_lokasi_pulang  INT UNSIGNED     NULL COMMENT 'Lokasi absen terdekat saat absen pulang',
+  jarak_pulang      INT UNSIGNED     NULL COMMENT 'Jarak ke lokasi absen terdekat saat absen pulang (meter)',
   keterangan        VARCHAR(255)     NULL COMMENT 'Catatan, mis. koreksi admin',
   dikoreksi_oleh    INT UNSIGNED     NULL COMMENT 'Admin yang mengoreksi absen',
   dibuat_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -181,7 +203,11 @@ CREATE TABLE absensi (
   CONSTRAINT fk_absensi_pengguna FOREIGN KEY (id_pengguna)
     REFERENCES pengguna (id_pengguna) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_absensi_korektor FOREIGN KEY (dikoreksi_oleh)
-    REFERENCES pengguna (id_pengguna) ON DELETE SET NULL ON UPDATE CASCADE
+    REFERENCES pengguna (id_pengguna) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_absensi_lokasi_masuk FOREIGN KEY (id_lokasi_masuk)
+    REFERENCES lokasi_absen (id_lokasi) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_absensi_lokasi_pulang FOREIGN KEY (id_lokasi_pulang)
+    REFERENCES lokasi_absen (id_lokasi) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
@@ -229,9 +255,6 @@ CREATE TABLE pengaturan (
   nama_yayasan         VARCHAR(100)   NOT NULL,
   alamat_yayasan       VARCHAR(255)   NULL,
   toleransi_terlambat  SMALLINT UNSIGNED NOT NULL DEFAULT 15 COMMENT 'Menit',
-  lokasi_lat           DECIMAL(10,7)  NULL COMMENT 'Titik lokasi absen (diisi admin)',
-  lokasi_lng           DECIMAL(10,7)  NULL,
-  radius_absen         SMALLINT UNSIGNED NOT NULL DEFAULT 100 COMMENT 'Meter',
   kuota_cuti_tahunan   TINYINT UNSIGNED NOT NULL DEFAULT 12 COMMENT 'Hari per tahun',
   diubah_pada          DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id_pengaturan)
@@ -270,11 +293,11 @@ CREATE TABLE percobaan_login (
 --  DATA AWAL (SEED)
 -- =====================================================================
 
--- Pengaturan default (lokasi absen dikosongkan, nanti diisi admin)
+-- Pengaturan default (lokasi absen ditambahkan admin di menu Lokasi Absen)
 INSERT INTO pengaturan (id_pengaturan, nama_yayasan, alamat_yayasan,
-                        toleransi_terlambat, lokasi_lat, lokasi_lng, radius_absen, kuota_cuti_tahunan)
+                        toleransi_terlambat, kuota_cuti_tahunan)
 VALUES (1, 'Yayasan Tiara Harapan Jaya', 'PUP Sektor V Blok O2 No. 1-5, Kel. Bahagia, Kec. Babelan, Kab. Bekasi',
-        15, NULL, NULL, 100, 12);
+        15, 12);
 
 -- Jam kerja guru per unit (bisa diubah admin di menu Pengaturan Sistem)
 INSERT INTO jam_kerja_unit (unit, jam_masuk, jam_pulang)

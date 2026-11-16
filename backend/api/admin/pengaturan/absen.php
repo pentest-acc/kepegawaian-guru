@@ -3,8 +3,8 @@
  * GET /api/admin/pengaturan/absen.php   (khusus admin)
  * Header: Authorization: Bearer <token>
  *
- * Pengaturan absen: titik lokasi sekolah, radius, toleransi terlambat,
- * dan jam masuk/pulang setiap unit.
+ * Pengaturan absen: toleransi terlambat, jam masuk/pulang setiap unit,
+ * dan jumlah lokasi absen aktif (lokasinya sendiri ada di admin/lokasi/).
  */
 require_once __DIR__ . '/../../../core/bootstrap.php';
 require_once __DIR__ . '/../../../core/absen.php';

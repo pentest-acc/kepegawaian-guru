@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:image_picker/image_picker.dart';
 
 /// Foto selfie yang diambil untuk absen.
 class FotoAbsen {
@@ -45,34 +44,48 @@ class LokasiException implements Exception {
   String toString() => pesan;
 }
 
-/// Kamera untuk foto absen. Bisa diganti versi palsu saat pengujian.
-class KameraAbsen {
-  const KameraAbsen();
-
-  /// Buka kamera depan. Mengembalikan null jika guru membatalkan.
-  /// Di browser laptop, yang terbuka adalah jendela pilih file.
-  Future<FotoAbsen?> ambilSelfie() async {
-    final foto = await ImagePicker().pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
-      // Foto dikecilkan agar cepat diunggah (biasanya < 300 KB)
-      maxWidth: 960,
-      maxHeight: 960,
-      imageQuality: 75,
-    );
-    if (foto == null) return null;
-    return FotoAbsen(
-      bytes: await foto.readAsBytes(),
-      namaFile: foto.name.isEmpty ? 'selfie.jpg' : foto.name,
-    );
-  }
-}
-
 /// Pembaca lokasi GPS. Bisa diganti versi palsu saat pengujian.
 class LokasiPerangkat {
   const LokasiPerangkat();
 
+  /// Posisi saat ini (sekali baca).
   Future<PosisiAbsen> posisiSekarang() async {
+    await _pastikanIzin();
+    try {
+      final posisi = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+      return _ubah(posisi);
+    } on Exception {
+      throw LokasiException(
+        'Lokasi belum terbaca. Pastikan GPS menyala dan coba di tempat '
+        'terbuka, lalu foto ulang.',
+      );
+    }
+  }
+
+  /// Posisi yang terus diperbarui selama kamera absen terbuka.
+  Stream<PosisiAbsen> pantauPosisi() async* {
+    await _pastikanIzin();
+    yield* Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 0, // kirim setiap pembaruan selama kamera terbuka
+      ),
+    ).map(_ubah);
+  }
+
+  static PosisiAbsen _ubah(Position posisi) => PosisiAbsen(
+    lat: posisi.latitude,
+    lng: posisi.longitude,
+    akurasi: posisi.accuracy,
+    palsu: posisi.isMocked,
+  );
+
+  Future<void> _pastikanIzin() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw LokasiException(
         'GPS/lokasi di HP sedang mati. Nyalakan lokasi lalu coba lagi.',
@@ -96,26 +109,6 @@ class LokasiPerangkat {
         pengaturan: kIsWeb
             ? PengaturanLokasi.tidakAda
             : PengaturanLokasi.izinAplikasi,
-      );
-    }
-
-    try {
-      final posisi = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 20),
-        ),
-      );
-      return PosisiAbsen(
-        lat: posisi.latitude,
-        lng: posisi.longitude,
-        akurasi: posisi.accuracy,
-        palsu: posisi.isMocked,
-      );
-    } on Exception {
-      throw LokasiException(
-        'Lokasi belum terbaca. Pastikan GPS menyala dan coba di tempat '
-        'terbuka, lalu tekan "Coba lagi".',
       );
     }
   }

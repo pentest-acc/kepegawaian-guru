@@ -4,8 +4,8 @@
  * Header: Authorization: Bearer <token>
  *
  * Isian:
- *   foto          : file foto selfie (JPG/PNG/WEBP)
- *   lat, lng      : lokasi GPS saat absen
+ *   foto          : foto selfie dari kamera (JPG/PNG/WEBP)
+ *   lat, lng      : lokasi GPS saat foto diambil
  *   lokasi_palsu  : "1" jika HP mendeteksi Fake GPS (opsional)
  *
  * Jam masuk diambil dari jam server. Lewat dari jam masuk unit + toleransi
@@ -49,9 +49,11 @@ if ($ada && $ada['jam_masuk'] !== null) {
 
 // ---------- Lokasi & foto ----------
 list($lat, $lng) = baca_lokasi($_POST);
+$lokasi     = periksa_lokasi($lat, $lng);
 $pengaturan = pengaturan_absen();
-$jarak      = periksa_jarak($lat, $lng, $pengaturan);
 $foto       = simpan_foto_absen($idGuru, 'masuk');
+$idLokasi   = $lokasi === null ? null : $lokasi['id_lokasi'];
+$jarak      = $lokasi === null ? null : $lokasi['jarak'];
 
 // ---------- Terlambat? ----------
 $selisihDetik   = $detikIni - detik_dari_jam($jamKerja['jam_masuk']);
@@ -62,22 +64,24 @@ $menitTerlambat = $terlambat ? intdiv($selisihDetik, 60) : 0;
 try {
     if ($ada) {
         $stmt = db()->prepare(
-            'UPDATE absensi SET jam_masuk = ?, foto_masuk = ?, lat_masuk = ?, lng_masuk = ?, jarak_masuk = ?,
-                    status = ?, menit_terlambat = ?
+            'UPDATE absensi SET jam_masuk = ?, foto_masuk = ?, lat_masuk = ?, lng_masuk = ?, id_lokasi_masuk = ?,
+                    jarak_masuk = ?, status = ?, menit_terlambat = ?
               WHERE id_absensi = ? AND jam_masuk IS NULL'
         );
-        $stmt->execute([$jamSekarang, $foto, $lat, $lng, $jarak, $status, $menitTerlambat, $ada['id_absensi']]);
+        $stmt->execute([$jamSekarang, $foto, $lat, $lng, $idLokasi, $jarak, $status, $menitTerlambat,
+                        $ada['id_absensi']]);
         if ($stmt->rowCount() === 0) {
             hapus_foto_absen($foto);
             kirim_json(409, false, 'Kamu sudah absen masuk hari ini.');
         }
     } else {
         $stmt = db()->prepare(
-            'INSERT INTO absensi (id_pengguna, tanggal, jam_masuk, foto_masuk, lat_masuk, lng_masuk, jarak_masuk,
-                                  status, menit_terlambat)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO absensi (id_pengguna, tanggal, jam_masuk, foto_masuk, lat_masuk, lng_masuk, id_lokasi_masuk,
+                                  jarak_masuk, status, menit_terlambat)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$idGuru, $tanggal, $jamSekarang, $foto, $lat, $lng, $jarak, $status, $menitTerlambat]);
+        $stmt->execute([$idGuru, $tanggal, $jamSekarang, $foto, $lat, $lng, $idLokasi, $jarak, $status,
+                        $menitTerlambat]);
     }
 } catch (PDOException $e) {
     hapus_foto_absen($foto);
@@ -88,7 +92,8 @@ try {
     throw $e;
 }
 
-$pesan = 'Absen masuk berhasil pukul ' . jam_titik($jamSekarang) . '.';
+$pesan = 'Absen masuk berhasil pukul ' . jam_titik($jamSekarang)
+    . ($lokasi === null ? '' : ' di ' . $lokasi['nama']) . '.';
 if ($terlambat) {
     $pesan .= ' Kamu terlambat ' . $menitTerlambat . ' menit.';
 }

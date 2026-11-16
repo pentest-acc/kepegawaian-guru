@@ -10,7 +10,9 @@ class Absensi {
     this.jamPulang,
     this.menitTerlambat = 0,
     this.menitPulangAwal = 0,
+    this.lokasiMasuk,
     this.jarakMasuk,
+    this.lokasiPulang,
     this.jarakPulang,
     this.adaFotoMasuk = false,
     this.adaFotoPulang = false,
@@ -29,7 +31,12 @@ class Absensi {
   final int menitTerlambat;
   final int menitPulangAwal;
 
-  /// Jarak dari titik lokasi sekolah (meter), null jika lokasi belum diatur.
+  /// Nama lokasi absen terdekat saat absen, mis. "Gedung SD"
+  /// (null jika admin belum menambahkan lokasi absen).
+  final String? lokasiMasuk;
+  final String? lokasiPulang;
+
+  /// Jarak ke lokasi absen terdekat (meter).
   final int? jarakMasuk;
   final int? jarakPulang;
   final bool adaFotoMasuk;
@@ -51,7 +58,9 @@ class Absensi {
     status: json['status'] as String,
     menitTerlambat: json['menit_terlambat'] as int? ?? 0,
     menitPulangAwal: json['menit_pulang_awal'] as int? ?? 0,
+    lokasiMasuk: json['lokasi_masuk'] as String?,
     jarakMasuk: json['jarak_masuk'] as int?,
+    lokasiPulang: json['lokasi_pulang'] as String?,
     jarakPulang: json['jarak_pulang'] as int?,
     adaFotoMasuk: json['ada_foto_masuk'] as bool? ?? false,
     adaFotoPulang: json['ada_foto_pulang'] as bool? ?? false,
@@ -59,29 +68,90 @@ class Absensi {
   );
 }
 
-/// Titik lokasi sekolah dan radius absen yang diatur admin.
-class LokasiSekolah {
-  const LokasiSekolah({
+/// Satu titik lokasi absen (mis. salah satu gedung Yayasan) beserta
+/// radiusnya. Admin bisa menambah banyak lokasi.
+class LokasiAbsen {
+  const LokasiAbsen({
+    this.idLokasi,
+    this.nomor = 0,
+    required this.nama,
     required this.lat,
     required this.lng,
     required this.radius,
+    this.aktif = true,
   });
 
+  /// null untuk lokasi baru yang belum disimpan.
+  final int? idLokasi;
+
+  /// Nomor urut: Lokasi 1, 2, 3, ...
+  final int nomor;
+  final String nama;
   final double lat;
   final double lng;
 
   /// Meter
   final int radius;
+  final bool aktif;
 
-  /// Jarak (meter) sebuah titik ke lokasi sekolah.
+  /// "Lokasi 2 • Gedung SD"
+  String get namaLengkap => nomor > 0 ? 'Lokasi $nomor • $nama' : nama;
+
+  /// Jarak (meter) sebuah titik ke lokasi ini.
   int jarakDari(double lat, double lng) =>
       jarakMeter(this.lat, this.lng, lat, lng).round();
 
-  factory LokasiSekolah.fromJson(Map<String, dynamic> json) => LokasiSekolah(
+  factory LokasiAbsen.fromJson(Map<String, dynamic> json) => LokasiAbsen(
+    idLokasi: json['id_lokasi'] as int?,
+    nomor: json['nomor'] as int? ?? 0,
+    nama: json['nama'] as String,
     lat: (json['lat'] as num).toDouble(),
     lng: (json['lng'] as num).toDouble(),
     radius: json['radius'] as int,
+    aktif: json['aktif'] as bool? ?? true,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id_lokasi': ?idLokasi,
+    'nama': nama,
+    'lat': lat,
+    'lng': lng,
+    'radius': radius,
+    'aktif': aktif,
+  };
+}
+
+/// Jarak posisi guru ke satu lokasi absen.
+class JarakLokasi {
+  const JarakLokasi(this.lokasi, this.jarak);
+
+  final LokasiAbsen lokasi;
+
+  /// Meter
+  final int jarak;
+
+  /// true jika posisi guru di dalam radius lokasi ini.
+  bool get diDalam => jarak <= lokasi.radius;
+}
+
+/// Jarak posisi guru ke setiap lokasi absen, urut dari yang terdekat.
+List<JarakLokasi> urutkanLokasi(
+  List<LokasiAbsen> daftar,
+  double lat,
+  double lng,
+) =>
+    [for (final l in daftar) JarakLokasi(l, l.jarakDari(lat, lng))]
+      ..sort((a, b) => a.jarak.compareTo(b.jarak));
+
+/// Lokasi yang dipakai untuk absen (sama dengan aturan server): lokasi
+/// terdekat yang radiusnya mencakup posisi guru. Jika tidak ada, lokasi
+/// terdekat (diDalam = false). null jika daftar lokasi kosong.
+JarakLokasi? lokasiAbsenTerpilih(List<JarakLokasi> urut) {
+  if (urut.isEmpty) return null;
+  for (final j in urut) {
+    if (j.diDalam) return j;
+  }
+  return urut.first;
 }
 
 /// Jam masuk & pulang untuk satu unit (KB/TK/SD).
@@ -128,7 +198,7 @@ class InfoAbsenHariIni {
     required this.absenMasukMulai,
     required this.absenPulangMulai,
     this.libur,
-    this.lokasiSekolah,
+    this.lokasiAbsen = const [],
     this.absensi,
   });
 
@@ -150,8 +220,9 @@ class InfoAbsenHariIni {
   /// Tombol absen pulang muncul mulai jam ini (jam pulang paling awal).
   final String absenPulangMulai;
 
-  /// null jika admin belum mengatur titik lokasi sekolah.
-  final LokasiSekolah? lokasiSekolah;
+  /// Lokasi absen yang aktif. Kosong = admin belum menambahkan lokasi,
+  /// jadi jarak tidak dicek.
+  final List<LokasiAbsen> lokasiAbsen;
 
   /// null jika guru belum absen hari ini.
   final Absensi? absensi;
@@ -166,7 +237,7 @@ class InfoAbsenHariIni {
     absenMasukMulai: absenMasukMulai,
     absenPulangMulai: absenPulangMulai,
     libur: libur,
-    lokasiSekolah: lokasiSekolah,
+    lokasiAbsen: lokasiAbsen,
     absensi: absensiBaru,
   );
 
@@ -181,11 +252,10 @@ class InfoAbsenHariIni {
       toleransiMenit: jamKerja['toleransi_menit'] as int? ?? 0,
       absenMasukMulai: json['absen_masuk_mulai'] as String,
       absenPulangMulai: json['absen_pulang_mulai'] as String,
-      lokasiSekolah: json['lokasi_sekolah'] == null
-          ? null
-          : LokasiSekolah.fromJson(
-              json['lokasi_sekolah'] as Map<String, dynamic>,
-            ),
+      lokasiAbsen: [
+        for (final l in json['lokasi_absen'] as List? ?? const [])
+          LokasiAbsen.fromJson(l as Map<String, dynamic>),
+      ],
       absensi: json['absensi'] == null
           ? null
           : Absensi.fromJson(json['absensi'] as Map<String, dynamic>),
@@ -194,31 +264,26 @@ class InfoAbsenHariIni {
 }
 
 /// Pengaturan absen yang diatur admin (menu Pengaturan Sistem).
+/// Lokasi absen diatur terpisah (menu Lokasi Absen).
 class PengaturanAbsen {
   const PengaturanAbsen({
-    required this.radiusAbsen,
     required this.toleransiTerlambat,
     required this.jamKerja,
-    this.lokasiLat,
-    this.lokasiLng,
+    this.jumlahLokasi = 0,
     this.alamatYayasan,
   });
 
-  final double? lokasiLat;
-  final double? lokasiLng;
-  final int radiusAbsen;
   final int toleransiTerlambat;
   final List<JamKerja> jamKerja;
-  final String? alamatYayasan;
 
-  bool get lokasiDiatur => lokasiLat != null && lokasiLng != null;
+  /// Jumlah lokasi absen yang aktif.
+  final int jumlahLokasi;
+  final String? alamatYayasan;
 
   factory PengaturanAbsen.fromJson(Map<String, dynamic> json) =>
       PengaturanAbsen(
-        lokasiLat: (json['lokasi_lat'] as num?)?.toDouble(),
-        lokasiLng: (json['lokasi_lng'] as num?)?.toDouble(),
-        radiusAbsen: json['radius_absen'] as int,
         toleransiTerlambat: json['toleransi_terlambat'] as int,
+        jumlahLokasi: json['jumlah_lokasi'] as int? ?? 0,
         alamatYayasan: json['alamat_yayasan'] as String?,
         jamKerja: (json['jam_kerja'] as List)
             .map((e) => JamKerja.fromJson(e as Map<String, dynamic>))
@@ -226,9 +291,6 @@ class PengaturanAbsen {
       );
 
   Map<String, dynamic> toJson() => {
-    'lokasi_lat': lokasiLat,
-    'lokasi_lng': lokasiLng,
-    'radius_absen': radiusAbsen,
     'toleransi_terlambat': toleransiTerlambat,
     'jam_kerja': jamKerja.map((j) => j.toJson()).toList(),
   };

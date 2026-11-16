@@ -3,9 +3,9 @@
  * POST /api/admin/pengaturan/simpan_absen.php   (khusus admin, body JSON)
  * Header: Authorization: Bearer <token>
  *
+ * Lokasi absen diatur terpisah di admin/lokasi/*.php (bisa banyak lokasi).
+ *
  * {
- *   "lokasi_lat": -6.1234567, "lokasi_lng": 107.0123456,   (null = tanpa cek lokasi)
- *   "radius_absen": 100,              (meter, 20-5000)
  *   "toleransi_terlambat": 15,        (menit, 0-180)
  *   "jam_kerja": [
  *     {"unit": "KB", "jam_masuk": "07:00", "jam_pulang": "13:00"},
@@ -23,26 +23,6 @@ wajib_login('admin');
 $input     = ambil_input();
 $kesalahan = [];
 
-// ---------- Lokasi sekolah ----------
-$latTeks = input_teks($input, 'lokasi_lat');
-$lngTeks = input_teks($input, 'lokasi_lng');
-$lat     = null;
-$lng     = null;
-if ($latTeks !== '' || $lngTeks !== '') {
-    $lat = filter_var($latTeks, FILTER_VALIDATE_FLOAT);
-    $lng = filter_var($lngTeks, FILTER_VALIDATE_FLOAT);
-    if ($lat === false || abs($lat) > 90) {
-        $kesalahan['lokasi_lat'] = 'Latitude harus angka antara -90 dan 90.';
-    }
-    if ($lng === false || abs($lng) > 180) {
-        $kesalahan['lokasi_lng'] = 'Longitude harus angka antara -180 dan 180.';
-    }
-}
-
-$radius = filter_var($input['radius_absen'] ?? null, FILTER_VALIDATE_INT);
-if ($radius === false || $radius < 20 || $radius > 5000) {
-    $kesalahan['radius_absen'] = 'Radius absen 20 sampai 5000 meter.';
-}
 $toleransi = filter_var($input['toleransi_terlambat'] ?? null, FILTER_VALIDATE_INT);
 if ($toleransi === false || $toleransi < 0 || $toleransi > 180) {
     $kesalahan['toleransi_terlambat'] = 'Toleransi terlambat 0 sampai 180 menit.';
@@ -81,10 +61,8 @@ if (!empty($kesalahan)) {
 // ---------- Simpan ----------
 $pdo = db();
 $pdo->beginTransaction();
-$pdo->prepare(
-    'UPDATE pengaturan SET lokasi_lat = ?, lokasi_lng = ?, radius_absen = ?, toleransi_terlambat = ?
-      WHERE id_pengaturan = 1'
-)->execute([$lat, $lng, $radius, $toleransi]);
+$pdo->prepare('UPDATE pengaturan SET toleransi_terlambat = ? WHERE id_pengaturan = 1')
+    ->execute([$toleransi]);
 
 $simpanJam = $pdo->prepare(
     'INSERT INTO jam_kerja_unit (unit, jam_masuk, jam_pulang) VALUES (?, ?, ?)

@@ -1,27 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/app_colors.dart';
 import '../../models/absensi.dart';
 import '../../services/absen_service.dart';
 import '../../services/api_service.dart';
-import '../../services/perangkat_absen.dart';
 import '../../utils/pesan.dart';
 import '../../widgets/input_field.dart';
 import '../../widgets/kotak_jam.dart';
 import '../../widgets/loading_dots.dart';
 import '../../widgets/tombol_utama.dart';
+import 'admin_lokasi_absen_screen.dart';
 
 /// Admin: Pengaturan Sistem bagian absensi.
 ///
-/// - Titik lokasi sekolah + radius absen (guru harus berada di dalamnya).
 /// - Toleransi terlambat.
 /// - Jam masuk & jam pulang setiap unit (KB/TK/SD).
+/// - Pintasan ke menu Lokasi Absen (titik-titik lokasi diatur di sana).
 class PengaturanSistemScreen extends StatefulWidget {
-  const PengaturanSistemScreen({super.key, this.absenService, this.lokasi});
+  const PengaturanSistemScreen({super.key, this.absenService});
 
   final AbsenService? absenService;
-  final LokasiPerangkat? lokasi;
 
   @override
   State<PengaturanSistemScreen> createState() => _PengaturanSistemScreenState();
@@ -29,48 +27,29 @@ class PengaturanSistemScreen extends StatefulWidget {
 
 class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
   late final AbsenService _service = widget.absenService ?? AbsenService();
-  late final LokasiPerangkat _lokasi = widget.lokasi ?? const LokasiPerangkat();
 
   final _formKey = GlobalKey<FormState>();
-  final _latController = TextEditingController();
-  final _lngController = TextEditingController();
-  final _radiusController = TextEditingController();
   final _toleransiController = TextEditingController();
 
   /// Jam kerja per unit, urut KB, TK, SD.
   List<JamKerja> _jamKerja = const [];
   String? _alamat;
+  int _jumlahLokasi = 0;
 
   bool _sedangMemuat = true;
-  bool _mencariLokasi = false;
   bool _sedangMenyimpan = false;
   bool _sudahCobaSimpan = false;
   String? _pesanGagalMuat;
   String? _pesanGagalSimpan;
 
-  static const _angkaDesimal = TextInputType.numberWithOptions(
-    signed: true,
-    decimal: true,
-  );
-
   @override
   void initState() {
     super.initState();
-    // Tombol "Lihat di Google Maps" & "Kosongkan" aktif saat lokasi terisi
-    _latController.addListener(_perbaruiTampilan);
-    _lngController.addListener(_perbaruiTampilan);
     _muat();
-  }
-
-  void _perbaruiTampilan() {
-    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _latController.dispose();
-    _lngController.dispose();
-    _radiusController.dispose();
     _toleransiController.dispose();
     super.dispose();
   }
@@ -94,53 +73,24 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
   }
 
   void _isiForm(PengaturanAbsen data) {
-    _latController.text = data.lokasiLat?.toStringAsFixed(7) ?? '';
-    _lngController.text = data.lokasiLng?.toStringAsFixed(7) ?? '';
-    _radiusController.text = '${data.radiusAbsen}';
     _toleransiController.text = '${data.toleransiTerlambat}';
     _jamKerja = data.jamKerja;
     _alamat = data.alamatYayasan;
+    _jumlahLokasi = data.jumlahLokasi;
   }
 
-  Future<void> _pakaiLokasiSekarang() async {
-    setState(() => _mencariLokasi = true);
-    try {
-      final posisi = await _lokasi.posisiSekarang();
-      if (!mounted) return;
-      setState(() {
-        _latController.text = posisi.lat.toStringAsFixed(7);
-        _lngController.text = posisi.lng.toStringAsFixed(7);
-        _mencariLokasi = false;
-      });
-      tampilkanPesan(
-        context,
-        'Lokasi terbaca (akurasi ± ${posisi.akurasi.round()} m). '
-        'Tekan Simpan Pengaturan untuk menyimpan.',
-      );
-    } on LokasiException catch (e) {
-      if (!mounted) return;
-      setState(() => _mencariLokasi = false);
-      tampilkanPesan(context, e.pesan, gagal: true);
-    }
-  }
-
-  void _kosongkanLokasi() {
-    setState(() {
-      _latController.clear();
-      _lngController.clear();
-    });
-  }
-
-  Future<void> _lihatDiPeta() async {
-    final lat = double.tryParse(_latController.text.trim());
-    final lng = double.tryParse(_lngController.text.trim());
-    if (lat == null || lng == null) return;
-    final berhasil = await launchUrl(
-      Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng'),
-      mode: LaunchMode.externalApplication,
+  Future<void> _bukaLokasiAbsen() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AdminLokasiAbsenScreen(absenService: _service),
+      ),
     );
-    if (!berhasil && mounted) {
-      tampilkanPesan(context, 'Google Maps tidak dapat dibuka.', gagal: true);
+    // Perbarui jumlah lokasi aktif
+    try {
+      final data = await _service.pengaturan();
+      if (mounted) setState(() => _jumlahLokasi = data.jumlahLokasi);
+    } on ApiException {
+      // biarkan angka lama
     }
   }
 
@@ -203,9 +153,6 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
     try {
       final tersimpan = await _service.simpanPengaturan(
         PengaturanAbsen(
-          lokasiLat: double.tryParse(_latController.text.trim()),
-          lokasiLng: double.tryParse(_lngController.text.trim()),
-          radiusAbsen: int.parse(_radiusController.text.trim()),
           toleransiTerlambat: int.parse(_toleransiController.text.trim()),
           jamKerja: _jamKerja,
         ),
@@ -226,20 +173,6 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
   }
 
   // ------------------------------- Validasi -------------------------------
-
-  String? _validasiKoordinat(String? nilai, {required bool lintang}) {
-    final teks = nilai?.trim() ?? '';
-    final pasangan = (lintang ? _lngController : _latController).text.trim();
-    if (teks.isEmpty) {
-      return pasangan.isEmpty ? null : 'Wajib diisi.';
-    }
-    final angka = double.tryParse(teks);
-    final batas = lintang ? 90 : 180;
-    if (angka == null || angka.abs() > batas) {
-      return 'Angka -$batas s.d. $batas.';
-    }
-    return null;
-  }
 
   static String? Function(String?) _validasiBulat(int min, int maks) =>
       (nilai) {
@@ -285,10 +218,6 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
       );
     }
 
-    final lokasiTerisi =
-        double.tryParse(_latController.text.trim()) != null &&
-        double.tryParse(_lngController.text.trim()) != null;
-
     return Form(
       key: _formKey,
       child: SingleChildScrollView(
@@ -311,83 +240,34 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
                   ),
                 ),
               ),
-            const _KotakInfo(
-              teks:
-                  'Guru hanya bisa absen jika berada di dalam radius dari titik '
-                  'ini. Cara termudah: berdiri di sekolah, lalu tekan "Gunakan '
-                  'lokasi saya sekarang". Kosongkan jika belum ingin mengecek '
-                  'lokasi.',
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _mencariLokasi ? null : _pakaiLokasiSekarang,
-              icon: _mencariLokasi
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location_rounded),
-              label: Text(
-                _mencariLokasi
-                    ? 'Mendeteksi lokasi...'
-                    : 'Gunakan lokasi saya sekarang',
+            Card(
+              elevation: 0,
+              margin: EdgeInsets.zero,
+              color: AppColors.isian,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(46),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+              child: ListTile(
+                onTap: _bukaLokasiAbsen,
+                leading: const Icon(
+                  Icons.add_location_alt_rounded,
+                  color: AppColors.navy,
                 ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: InputField(
-                    label: 'Latitude',
-                    hint: 'Belum diatur',
-                    controller: _latController,
-                    keyboardType: _angkaDesimal,
-                    validator: (v) => _validasiKoordinat(v, lintang: true),
+                title: Text(
+                  _jumlahLokasi == 0
+                      ? 'Belum ada lokasi absen'
+                      : '$_jumlahLokasi lokasi absen aktif',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: InputField(
-                    label: 'Longitude',
-                    hint: 'Belum diatur',
-                    controller: _lngController,
-                    keyboardType: _angkaDesimal,
-                    validator: (v) => _validasiKoordinat(v, lintang: false),
-                  ),
+                subtitle: const Text(
+                  'Atur titik lokasi setiap gedung di menu Lokasi Absen',
+                  style: TextStyle(fontSize: 12),
                 ),
-              ],
-            ),
-            Wrap(
-              spacing: 4,
-              children: [
-                TextButton.icon(
-                  onPressed: lokasiTerisi ? _lihatDiPeta : null,
-                  icon: const Icon(Icons.map_outlined, size: 18),
-                  label: const Text('Lihat di Google Maps'),
-                ),
-                TextButton.icon(
-                  onPressed: lokasiTerisi ? _kosongkanLokasi : null,
-                  icon: const Icon(Icons.location_off_outlined, size: 18),
-                  label: const Text('Kosongkan'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            InputField(
-              label: 'Radius absen (meter)',
-              hint: '100',
-              controller: _radiusController,
-              ikon: Icons.radar_rounded,
-              keyboardType: TextInputType.number,
-              validator: _validasiBulat(20, 5000),
+                trailing: const Icon(Icons.chevron_right_rounded),
+              ),
             ),
             const SizedBox(height: 26),
             const _JudulBagian(

@@ -15,21 +15,23 @@ Dikerjakan bertahap, mulai dari dasar seperti programmer pada umumnya.
 | **1** | Fondasi proyek, rancangan database lengkap, API login/register, animasi splash & loading, Login, Register, Beranda Guru | ✅ Selesai |
 | **2** | Info Kegiatan (daftar, cari, tandai penting, detail, unduh lampiran), banner info bergulir otomatis di Beranda, logo & foto Yayasan, nama + gelar terpisah, pengamanan login | ✅ Selesai |
 | **3** | Jadwal Mengajar dengan **sistem jadwal mingguan** (guru: tab Senin–Jumat + pindah minggu; admin: atur jadwal per guru + cek bentrok), **Docker** | ✅ Selesai |
-| **4** | **Absen** foto selfie + lokasi GPS (jam masuk/pulang dari jam server, terlambat, pulang lebih awal), admin **Pengaturan Sistem** (titik lokasi sekolah, radius, jam kerja per unit) | ✅ Selesai |
+| **4** | **Absen** dengan kamera langsung + lokasi GPS saat foto diambil, **banyak lokasi absen** (lokasi terdekat terlihat oleh guru), jam masuk/pulang dari jam server, terlambat, pulang lebih awal; admin **Lokasi Absen** & **Pengaturan Sistem** | ✅ Selesai |
 | 5 | Riwayat Absen (rekap per bulan, jam kerja) | ⏳ Berikutnya |
 | 6 | Cuti / Izin (pengajuan, sisa kuota, status) | ⏳ |
 | 7 | Pengaturan & Profil | ⏳ |
-| 8+ | Halaman Admin: dashboard, data guru, kelola info, monitoring absensi, persetujuan cuti, laporan PDF/Excel (kelola jadwal sudah dibuat di Sesi 3, pengaturan absen di Sesi 4) | ⏳ |
+| 8+ | Halaman Admin: dashboard, data guru, kelola info, monitoring absensi, persetujuan cuti, laporan PDF/Excel (kelola jadwal sudah dibuat di Sesi 3, lokasi & pengaturan absen di Sesi 4) | ⏳ |
 
 ### Yang baru di Sesi 4
 
 - **Absen (guru)** sesuai desain:
-  1. Tekan **Upload Gambar** → kamera depan terbuka → ambil foto selfie.
-  2. Lokasi GPS otomatis dideteksi dan ditampilkan di kartu abu-abu: hijau jika **di area sekolah**, merah jika **di luar area** (tombol **Upload Absen** tidak bisa ditekan).
-  3. Tekan **Upload Absen**. Setelah absen masuk, tombol hilang dan tampil **Jam Masuk** beserta ikon lokasi & foto tersimpan.
-  4. Tombol **Absen Pulang** muncul otomatis mulai **pukul 13.00** (jam pulang guru TK). Guru SD juga sudah bisa absen pulang, tetapi jika sebelum jam pulang unitnya (14.00) aplikasi meminta konfirmasi dan absennya tercatat **pulang lebih awal** untuk rekap admin.
+  1. Tekan **Buka Kamera** → kamera langsung terbuka **di dalam aplikasi** (kamera depan). Foto **tidak bisa diambil dari galeri**.
+  2. Selama kamera terbuka, lokasi GPS dipantau terus dan **lokasi absen terdekat** tampil di atas kamera, mis. *Lokasi 2 • Gedung SD • 30 m*. Posisi GPS saat tombol foto ditekan ikut disimpan bersama fotonya.
+  3. Setelah foto, kartu abu-abu menampilkan lokasi terdekat dan **jarak ke semua lokasi absen**: hijau jika di dalam radius salah satu lokasi, merah jika di luar semuanya (tombol **Kirim Absen** tidak bisa ditekan, guru diminta mendekat lalu foto ulang).
+  4. Tekan **Kirim Absen**. Setelah absen masuk, tombol hilang dan tampil **Jam Masuk** beserta ikon lokasi, ikon foto tersimpan, dan nama lokasinya.
+  5. Tombol **Absen Pulang** muncul otomatis mulai **pukul 13.00** (jam pulang guru TK). Guru SD juga sudah bisa absen pulang, tetapi jika sebelum jam pulang unitnya (14.00) aplikasi meminta konfirmasi dan absennya tercatat **pulang lebih awal** untuk rekap admin.
 - **Aturan absen dihitung di server**: jam absen memakai jam server (tidak bisa diakali dengan mengubah jam HP), terlambat jika lewat jam masuk + toleransi (bawaan 15 menit), hari Minggu & hari libur tidak ada absen, aplikasi **Fake GPS** ditolak, dan foto absen bersifat pribadi (hanya bisa dilihat guru pemilik & admin).
-- **Pengaturan Sistem (admin)**: atur **titik lokasi sekolah** (cukup tekan *Gunakan lokasi saya sekarang* saat berada di sekolah), **radius absen**, **toleransi terlambat**, dan **jam masuk/pulang setiap unit** (bawaan KB & TK 07.00–13.00, SD 07.00–14.00).
+- **Lokasi Absen (admin)**: tambah lokasi sebanyak yang dibutuhkan (mis. 3 gedung Yayasan yang terpencar, maks. 20), masing-masing dengan nama, titik koordinat, dan radiusnya sendiri. Titik bisa diisi dengan *Gunakan lokasi saya sekarang* saat berada di gedung tersebut, atau dengan menempel koordinat dari Google Maps. Lokasi bisa dinonaktifkan sementara atau dihapus.
+- **Pengaturan Sistem (admin)**: **toleransi terlambat** dan **jam masuk/pulang setiap unit** (bawaan KB & TK 07.00–13.00, SD 07.00–14.00).
 - Kotak "Akun demo (mode debug)" di halaman login dihapus.
 
 ### Yang baru di Sesi 3
@@ -241,9 +243,9 @@ Bisa juga membuat akun guru sendiri lewat tombol **Daftar di sini** di halaman l
 
 Mencoba absen:
 
-1. Login sebagai **Admin** → **Pengaturan Sistem** → tekan **Gunakan lokasi saya sekarang** → **Simpan Pengaturan**. (Boleh dilewati; jika titik lokasi kosong, jarak tidak dicek.)
-2. Logout, login sebagai guru → menu **Absen** → **Upload Gambar** → **Upload Absen**.
-3. Di Chrome laptop, *Upload Gambar* membuka jendela pilih file (bukan kamera) dan Chrome akan meminta izin lokasi: pilih **Allow/Izinkan**. Di HP, yang terbuka adalah kamera depan.
+1. Login sebagai **Admin** → **Lokasi Absen** → **Tambah Lokasi** → isi nama (mis. *Gedung SD*) → **Gunakan lokasi saya sekarang** (atau tempel koordinat dari Google Maps) → **Simpan Lokasi**. Ulangi untuk gedung lainnya. (Boleh dilewati; selama belum ada lokasi, jarak tidak dicek.)
+2. Logout, login sebagai guru → menu **Absen** → **Buka Kamera** → tekan tombol bulat untuk memotret → **Kirim Absen**.
+3. Saat pertama kali, aplikasi/browser meminta izin **kamera** dan **lokasi**: pilih **Izinkan/Allow**. Di Chrome laptop, yang dipakai adalah webcam laptop.
 
 Mencoba sistem jadwal: login sebagai **Admin** → **Kelola Jadwal Mengajar** → pilih guru → ubah/tambah jadwal. Lalu logout, login sebagai guru tersebut → menu **Jadwal Mengajar**: perubahan langsung terlihat, dan berlaku juga di minggu-minggu berikutnya (tekan tombol **›**).
 
@@ -263,14 +265,21 @@ flutter pub get
 
 > Jika sesi berikutnya mengubah database, akan ada file SQL tambahan + petunjuknya. Jangan import ulang `db_kepegawaian_guru.sql` kalau database sudah berisi data asli, karena file itu menghapus tabel lama.
 
-### Pembaruan database Sesi 4 (wajib, cukup sekali)
+### Pembaruan database Sesi 4b — banyak lokasi absen (wajib, cukup sekali)
 
-Sesi 4 menambah tabel `jam_kerja_unit` (jam masuk/pulang per unit) dan kolom baru di tabel `absensi`. Pilih **salah satu**:
+Pembaruan ini menambah tabel `lokasi_absen` (banyak titik lokasi) dan kolom lokasi di tabel `absensi`. Pilih **salah satu**:
 
 - **Cara mudah (data lama boleh hilang)** — import ulang `database/db_kepegawaian_guru.sql` lewat phpMyAdmin seperti langkah 3.
-- **Cara aman (data lama dipertahankan)** — di phpMyAdmin klik tab **Import**, pilih file `database/migrasi/2026-11-09_sesi4.sql`, lalu klik **Import**. (Jika migrasi Sesi 3 belum pernah dijalankan, jalankan `2026-10-10_sesi3.sql` dulu.)
+- **Cara aman (data lama dipertahankan)** — di phpMyAdmin klik tab **Import**, pilih file `database/migrasi/2026-11-16_sesi4b.sql`, lalu klik **Import**. Jika sebelumnya admin sudah mengisi satu titik lokasi, titik itu otomatis menjadi lokasi bernama **Lokasi Utama** (namanya bisa diubah di menu Lokasi Absen). (Jika migrasi Sesi 4 belum pernah dijalankan, jalankan `2026-11-09_sesi4.sql` dulu.)
 
-Setelah itu jalankan `flutter pub get`, lalu **stop** aplikasi dan jalankan ulang (`flutter run`), karena ada paket baru (`image_picker` untuk kamera dan `geolocator` untuk GPS). Untuk HP Android, aplikasi akan meminta **izin lokasi** saat pertama kali absen: pilih **Izinkan**.
+Setelah itu jalankan `flutter pub get`, lalu **stop** aplikasi dan jalankan ulang (`flutter run`), karena paket `image_picker` diganti paket `camera` (kamera langsung). Paket `camera` membutuhkan **Flutter 3.38 atau lebih baru** (cek dengan `flutter --version`, perbarui dengan `flutter upgrade`) dan HP **Android 6.0** ke atas. Saat pertama kali absen, HP meminta izin **kamera** dan **lokasi**: pilih **Izinkan**.
+
+### Pembaruan database Sesi 4
+
+Hanya untuk yang belum memperbarui database di Sesi 4. Sesi 4 menambah tabel `jam_kerja_unit` (jam masuk/pulang per unit) dan kolom baru di tabel `absensi`. Pilih **salah satu**:
+
+- **Cara mudah (data lama boleh hilang)** — import ulang `database/db_kepegawaian_guru.sql` lewat phpMyAdmin seperti langkah 3.
+- **Cara aman (data lama dipertahankan)** — import `database/migrasi/2026-11-09_sesi4.sql`, lalu `database/migrasi/2026-11-16_sesi4b.sql`. (Jika migrasi Sesi 3 belum pernah dijalankan, jalankan `2026-10-10_sesi3.sql` dulu.)
 
 > Pengguna Docker: jalankan `docker compose up -d --build` (ada perubahan kecil di resep backend), lalu import file migrasi di phpMyAdmin Docker (<http://localhost:8081>), atau `docker compose down -v` lalu `docker compose up -d` untuk mulai dari database baru.
 
@@ -405,8 +414,9 @@ flutter test
 | Docker: *"port is already allocated"* | Port 8080/8081/3307 dipakai aplikasi lain (mis. Laragon). Matikan aplikasi itu, atau salin `.env.example` menjadi `.env` dan ganti nomor portnya. |
 | Docker: halaman API menampilkan *"Gagal terhubung ke database"* | MySQL di Docker masih menyiapkan database (± 30 detik saat pertama kali). Cek dengan `docker compose ps` sampai `db` berstatus **healthy**. |
 | `Failed to launch browser ... msedge.exe` saat `flutter run` | Flutter memakai Edge karena Chrome tidak terdeteksi, dan Edge gagal dibuka. Pakai `flutter run -d chrome` (pasang Google Chrome jika belum ada), atau tutup semua Edge lewat Task Manager lalu coba lagi. Cara cadangan: `flutter run -d web-server --web-port 5000`, lalu buka <http://localhost:5000> di browser apa saja. |
-| Absen: "Lokasi belum terbaca" | Nyalakan GPS/lokasi di HP dan izinkan akses lokasi untuk aplikasi. Di Chrome laptop, klik ikon gembok/lokasi di address bar → **Allow**. Lokasi di browser hanya bisa dibaca dari alamat `localhost` atau `https`. |
-| Absen: "Di luar area sekolah" padahal sudah di sekolah | Titik lokasi sekolah di **Pengaturan Sistem** (admin) belum tepat, atau radiusnya terlalu kecil. Atur ulang dengan **Gunakan lokasi saya sekarang** saat berada di sekolah, atau perbesar radiusnya (mis. 150 m). |
+| Absen: "Lokasi tidak terbaca saat foto diambil" | Nyalakan GPS/lokasi di HP dan izinkan akses lokasi untuk aplikasi, tunggu sampai lokasi tampil di atas kamera, lalu foto ulang. Di Chrome laptop, klik ikon gembok di address bar → izinkan **Location**. Lokasi di browser hanya bisa dibaca dari alamat `localhost` atau `https`. |
+| Absen: "Izin kamera ditolak" / layar kamera hitam | Izinkan akses **kamera** untuk aplikasi (Pengaturan HP → Aplikasi → Kepegawaian Guru → Izin), atau di Chrome klik ikon gembok → izinkan **Camera**. Tutup aplikasi lain yang sedang memakai kamera (mis. Zoom/WhatsApp video). |
+| Absen: "Di luar area lokasi absen" padahal sudah di gedung | Titik lokasi gedung tersebut di menu **Lokasi Absen** (admin) belum tepat, radiusnya terlalu kecil, atau lokasinya nonaktif. Atur ulang dengan **Gunakan lokasi saya sekarang** saat berada di gedung itu, atau perbesar radiusnya (mis. 150 m). |
 | Absen: "Foto absen gagal disimpan" | Folder `backend/uploads/absen` harus bisa ditulis oleh Apache. Di Laragon/Windows biasanya otomatis bisa; di Linux jalankan `chmod 777 backend/uploads/absen`. |
 | Jadwal Mengajar guru kosong | Admin belum mengatur jadwal guru tersebut (Kelola Jadwal Mengajar), atau database belum diperbarui ke Sesi 3. |
 | Folder proyek bukan `kepegawaian-guru` | Ubah `folderProyek` di `aplikasi/lib/config/api_config.dart`. |

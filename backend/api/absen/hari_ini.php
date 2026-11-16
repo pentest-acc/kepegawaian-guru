@@ -4,8 +4,8 @@
  * Header: Authorization: Bearer <token>   (khusus guru)
  *
  * Semua yang dibutuhkan halaman Absen: tanggal & jam server, status libur,
- * jam kerja unit guru, jam tombol absen pulang muncul, titik lokasi sekolah,
- * dan absensi guru hari ini (null jika belum absen).
+ * jam kerja unit guru, jam tombol absen pulang muncul, daftar lokasi absen
+ * yang aktif, dan absensi guru hari ini (null jika belum absen).
  */
 require_once __DIR__ . '/../../core/bootstrap.php';
 require_once __DIR__ . '/../../core/absen.php';
@@ -32,6 +32,6 @@ kirim_json(200, true, 'Data absen hari ini.', [
     ],
     'absen_masuk_mulai'  => $GLOBALS['config_app']['absen_masuk_mulai'],
     'absen_pulang_mulai' => jam_pendek(jam_buka_absen_pulang()),
-    'lokasi_sekolah'     => lokasi_sekolah_publik($pengaturan),
+    'lokasi_absen'       => array_map('data_lokasi_publik', daftar_lokasi_absen(true)),
     'absensi'            => $absensi ? data_absensi_publik($absensi) : null,
 ]);

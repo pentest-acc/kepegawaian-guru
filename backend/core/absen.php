@@ -10,8 +10,9 @@
  *  - Absen pulang dibuka mulai jam pulang PALING AWAL di tabel
  *    jam_kerja_unit (mis. 13.00 untuk TK). Guru yang absen pulang sebelum
  *    jam pulang unitnya sendiri dicatat "pulang lebih awal".
- *  - Jika admin sudah mengatur titik lokasi sekolah, guru harus berada di
- *    dalam radius absen.
+ *  - Admin bisa menambah BANYAK lokasi absen (mis. 3 gedung Yayasan).
+ *    Guru harus berada di dalam radius salah satu lokasi yang aktif; yang
+ *    dicatat adalah lokasi terdekat. Jika belum ada lokasi, jarak tidak dicek.
  */
 
 const NAMA_HARI = [1 => 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
@@ -75,36 +76,56 @@ function jam_buka_absen_pulang()
     return $jam ?: '13:00:00';
 }
 
-/** Pengaturan absen: toleransi terlambat, titik lokasi sekolah, radius. */
+/** Pengaturan absen: toleransi terlambat. */
 function pengaturan_absen()
 {
-    $baris = db()->query(
-        'SELECT toleransi_terlambat, lokasi_lat, lokasi_lng, radius_absen
-           FROM pengaturan WHERE id_pengaturan = 1'
-    )->fetch();
-    if (!$baris) {
-        $baris = ['toleransi_terlambat' => 15, 'lokasi_lat' => null, 'lokasi_lng' => null, 'radius_absen' => 100];
-    }
-    return $baris;
+    $baris = db()->query('SELECT toleransi_terlambat FROM pengaturan WHERE id_pengaturan = 1')->fetch();
+    return $baris ?: ['toleransi_terlambat' => 15];
 }
 
-/** Data lokasi sekolah untuk aplikasi, atau null jika belum diatur admin. */
-function lokasi_sekolah_publik(array $pengaturan)
+/**
+ * Semua lokasi absen urut dibuat, beserta nomor urutnya (Lokasi 1, 2, 3, ...).
+ * Nomor dihitung dari SEMUA lokasi agar tidak berubah saat ada yang dinonaktifkan.
+ */
+function daftar_lokasi_absen($hanyaAktif = false)
 {
-    if ($pengaturan['lokasi_lat'] === null || $pengaturan['lokasi_lng'] === null) {
-        return null;
+    $hasil = [];
+    $nomor = 0;
+    foreach (db()->query('SELECT * FROM lokasi_absen ORDER BY id_lokasi')->fetchAll() as $b) {
+        $nomor++;
+        if ($hanyaAktif && !$b['aktif']) {
+            continue;
+        }
+        $b['nomor'] = $nomor;
+        $hasil[]    = $b;
     }
+    return $hasil;
+}
+
+/** Ubah baris lokasi_absen menjadi data JSON untuk aplikasi. */
+function data_lokasi_publik(array $b)
+{
     return [
-        'lat'    => (float) $pengaturan['lokasi_lat'],
-        'lng'    => (float) $pengaturan['lokasi_lng'],
-        'radius' => (int) $pengaturan['radius_absen'],
+        'id_lokasi' => (int) $b['id_lokasi'],
+        'nomor'     => (int) $b['nomor'],
+        'nama'      => $b['nama'],
+        'lat'       => (float) $b['lat'],
+        'lng'       => (float) $b['lng'],
+        'radius'    => (int) $b['radius'],
+        'aktif'     => (bool) $b['aktif'],
     ];
 }
 
 /** Baris absensi guru pada tanggal tertentu (false jika belum ada). */
 function absensi_guru($idPengguna, $tanggal)
 {
-    $stmt = db()->prepare('SELECT * FROM absensi WHERE id_pengguna = ? AND tanggal = ?');
+    $stmt = db()->prepare(
+        'SELECT a.*, lm.nama AS nama_lokasi_masuk, lp.nama AS nama_lokasi_pulang
+           FROM absensi a
+           LEFT JOIN lokasi_absen lm ON lm.id_lokasi = a.id_lokasi_masuk
+           LEFT JOIN lokasi_absen lp ON lp.id_lokasi = a.id_lokasi_pulang
+          WHERE a.id_pengguna = ? AND a.tanggal = ?'
+    );
     $stmt->execute([(int) $idPengguna, $tanggal]);
     return $stmt->fetch();
 }
@@ -120,7 +141,9 @@ function data_absensi_publik(array $b)
         'status'            => $b['status'],
         'menit_terlambat'   => (int) $b['menit_terlambat'],
         'menit_pulang_awal' => (int) $b['menit_pulang_awal'],
+        'lokasi_masuk'      => $b['nama_lokasi_masuk'] ?? null,
         'jarak_masuk'       => $b['jarak_masuk'] === null ? null : (int) $b['jarak_masuk'],
+        'lokasi_pulang'     => $b['nama_lokasi_pulang'] ?? null,
         'jarak_pulang'      => $b['jarak_pulang'] === null ? null : (int) $b['jarak_pulang'],
         'ada_foto_masuk'    => $b['foto_masuk'] !== null,
         'ada_foto_pulang'   => $b['foto_pulang'] !== null,
@@ -170,25 +193,42 @@ function baca_lokasi(array $input)
 }
 
 /**
- * Pastikan guru berada di dalam radius sekolah.
- * Mengembalikan jarak (meter), atau null jika lokasi sekolah belum diatur.
+ * Pastikan guru berada di dalam radius salah satu lokasi absen yang aktif.
+ *
+ * Mengembalikan ['id_lokasi' => .., 'nama' => .., 'jarak' => ..] untuk lokasi
+ * terdekat yang radiusnya mencakup posisi guru, atau null jika admin belum
+ * menambahkan lokasi absen sama sekali (jarak tidak dicek).
  */
-function periksa_jarak($lat, $lng, array $pengaturan)
+function periksa_lokasi($lat, $lng)
 {
-    $sekolah = lokasi_sekolah_publik($pengaturan);
-    if ($sekolah === null) {
+    $daftar = daftar_lokasi_absen(true);
+    if (empty($daftar)) {
         return null;
     }
 
-    $jarak = (int) round(jarak_meter($lat, $lng, $sekolah['lat'], $sekolah['lng']));
-    if ($jarak > $sekolah['radius']) {
-        kirim_json(422, false, sprintf(
-            'Kamu berada ± %s dari sekolah. Absen hanya bisa dilakukan dalam radius %d m dari sekolah.',
-            format_jarak($jarak),
-            $sekolah['radius']
-        ), ['jarak' => $jarak, 'radius' => $sekolah['radius']]);
+    $terdekat = null; // lokasi terdekat (untuk pesan jika di luar semua radius)
+    $sah      = null; // lokasi terdekat yang radiusnya mencakup posisi guru
+    foreach ($daftar as $lokasi) {
+        $jarak = (int) round(jarak_meter($lat, $lng, (float) $lokasi['lat'], (float) $lokasi['lng']));
+        $calon = ['id_lokasi' => (int) $lokasi['id_lokasi'], 'nama' => $lokasi['nama'],
+                  'jarak' => $jarak, 'radius' => (int) $lokasi['radius']];
+        if ($terdekat === null || $jarak < $terdekat['jarak']) {
+            $terdekat = $calon;
+        }
+        if ($jarak <= $calon['radius'] && ($sah === null || $jarak < $sah['jarak'])) {
+            $sah = $calon;
+        }
     }
-    return $jarak;
+
+    if ($sah === null) {
+        kirim_json(422, false, sprintf(
+            'Kamu berada ± %s dari lokasi absen terdekat (%s). Absen hanya bisa dilakukan dalam radius %d m dari lokasi tersebut.',
+            format_jarak($terdekat['jarak']),
+            $terdekat['nama'],
+            $terdekat['radius']
+        ), ['lokasi' => $terdekat['nama'], 'jarak' => $terdekat['jarak'], 'radius' => $terdekat['radius']]);
+    }
+    return $sah;
 }
 
 /**
@@ -244,7 +284,6 @@ function hapus_foto_absen($relatif)
 /** Seluruh pengaturan absen untuk halaman Pengaturan Sistem (admin). */
 function data_pengaturan_absen_admin()
 {
-    $pengaturan = pengaturan_absen();
     $alamat     = db()->query('SELECT alamat_yayasan FROM pengaturan WHERE id_pengaturan = 1')->fetchColumn();
     $jamKerja   = db()->query(
         "SELECT unit, jam_masuk, jam_pulang FROM jam_kerja_unit ORDER BY FIELD(unit, 'KB', 'TK', 'SD')"
@@ -252,10 +291,8 @@ function data_pengaturan_absen_admin()
 
     return [
         'alamat_yayasan'      => $alamat === false ? null : $alamat,
-        'lokasi_lat'          => $pengaturan['lokasi_lat'] === null ? null : (float) $pengaturan['lokasi_lat'],
-        'lokasi_lng'          => $pengaturan['lokasi_lng'] === null ? null : (float) $pengaturan['lokasi_lng'],
-        'radius_absen'        => (int) $pengaturan['radius_absen'],
-        'toleransi_terlambat' => (int) $pengaturan['toleransi_terlambat'],
+        'toleransi_terlambat' => (int) pengaturan_absen()['toleransi_terlambat'],
+        'jumlah_lokasi'       => (int) db()->query('SELECT COUNT(*) FROM lokasi_absen WHERE aktif = 1')->fetchColumn(),
         'jam_kerja'           => array_map(function ($b) {
             return [
                 'unit'       => $b['unit'],

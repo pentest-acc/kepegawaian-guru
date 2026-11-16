@@ -38,8 +38,8 @@ if ($detikIni < detik_dari_jam($buka)) {
 
 // ---------- Lokasi & foto ----------
 list($lat, $lng) = baca_lokasi($_POST);
-$jarak = periksa_jarak($lat, $lng, pengaturan_absen());
-$foto  = simpan_foto_absen($idGuru, 'pulang');
+$lokasi = periksa_lokasi($lat, $lng);
+$foto   = simpan_foto_absen($idGuru, 'pulang');
 
 // ---------- Pulang lebih awal? ----------
 $jamKerja    = jam_kerja_unit($pengguna['unit']);
@@ -47,17 +47,23 @@ $sisaDetik   = detik_dari_jam($jamKerja['jam_pulang']) - $detikIni;
 $menitAwal   = $sisaDetik > 0 ? (int) ceil($sisaDetik / 60) : 0;
 
 $stmt = db()->prepare(
-    'UPDATE absensi SET jam_pulang = ?, foto_pulang = ?, lat_pulang = ?, lng_pulang = ?, jarak_pulang = ?,
-            menit_pulang_awal = ?
+    'UPDATE absensi SET jam_pulang = ?, foto_pulang = ?, lat_pulang = ?, lng_pulang = ?, id_lokasi_pulang = ?,
+            jarak_pulang = ?, menit_pulang_awal = ?
       WHERE id_absensi = ? AND jam_pulang IS NULL'
 );
-$stmt->execute([$jamSekarang, $foto, $lat, $lng, $jarak, $menitAwal, $absensi['id_absensi']]);
+$stmt->execute([
+    $jamSekarang, $foto, $lat, $lng,
+    $lokasi === null ? null : $lokasi['id_lokasi'],
+    $lokasi === null ? null : $lokasi['jarak'],
+    $menitAwal, $absensi['id_absensi'],
+]);
 if ($stmt->rowCount() === 0) {
     hapus_foto_absen($foto);
     kirim_json(409, false, 'Kamu sudah absen pulang hari ini.');
 }
 
-$pesan = 'Absen pulang berhasil pukul ' . jam_titik($jamSekarang) . '.';
+$pesan = 'Absen pulang berhasil pukul ' . jam_titik($jamSekarang)
+    . ($lokasi === null ? '' : ' di ' . $lokasi['nama']) . '.';
 if ($menitAwal > 0) {
     $pesan .= ' Tercatat pulang lebih awal ' . $menitAwal . ' menit (jam pulang unit '
         . $jamKerja['unit'] . ' pukul ' . jam_titik($jamKerja['jam_pulang']) . ').';

@@ -13,6 +13,7 @@ import '../../utils/format_tanggal.dart';
 import '../../utils/pesan.dart';
 import '../../widgets/loading_dots.dart';
 import '../../widgets/tombol_utama.dart';
+import 'kamera_absen_screen.dart';
 
 /// Tahapan halaman Absen pada hari ini.
 enum _Tahap {
@@ -29,8 +30,10 @@ enum _Tahap {
 /// Halaman Absen guru (sesuai desain): foto selfie + lokasi GPS.
 ///
 /// Alur:
-/// 1. Tekan "Upload Gambar" -> kamera terbuka -> foto selfie.
-/// 2. Lokasi otomatis dideteksi; jika di area sekolah tekan "Upload Absen".
+/// 1. Tekan "Buka Kamera" -> kamera langsung (bukan galeri) -> foto selfie.
+///    Lokasi GPS dibaca tepat saat foto diambil.
+/// 2. Aplikasi menampilkan lokasi absen terdekat (Lokasi 1, 2, 3, ...);
+///    jika berada di dalam radius salah satunya, tekan "Kirim Absen".
 /// 3. Setelah absen masuk tombol hilang, lalu muncul lagi mulai jam pulang
 ///    paling awal (13.00) untuk absen pulang.
 ///
@@ -68,10 +71,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
   Duration _selisihServer = Duration.zero;
   Timer? _detak;
 
-  // Foto & lokasi yang sedang disiapkan (belum diunggah)
+  // Foto & lokasi saat foto diambil (belum dikirim)
   FotoAbsen? _foto;
   PosisiAbsen? _posisi;
-  bool _mencariLokasi = false;
   LokasiException? _masalahLokasi;
   bool _sedangMengirim = false;
 
@@ -175,64 +177,41 @@ class _AbsenScreenState extends State<AbsenScreen> {
     return sisa > 0 ? sisa : 0;
   }
 
-  int? get _jarak {
-    final sekolah = _info?.lokasiSekolah;
+  /// Jarak posisi saat foto ke setiap lokasi absen, terdekat di atas.
+  List<JarakLokasi> get _jarakLokasi {
     final posisi = _posisi;
-    if (sekolah == null || posisi == null) return null;
-    return sekolah.jarakDari(posisi.lat, posisi.lng);
+    if (posisi == null) return const [];
+    return urutkanLokasi(
+      _info?.lokasiAbsen ?? const [],
+      posisi.lat,
+      posisi.lng,
+    );
   }
 
-  bool get _diLuarRadius {
-    final jarak = _jarak;
-    return jarak != null && jarak > _info!.lokasiSekolah!.radius;
+  bool get _lokasiSiap {
+    final posisi = _posisi;
+    if (posisi == null || posisi.palsu) return false;
+    final terpilih = lokasiAbsenTerpilih(_jarakLokasi);
+    return terpilih == null || terpilih.diDalam;
   }
-
-  bool get _lokasiSiap =>
-      _posisi != null && !_posisi!.palsu && !_diLuarRadius && !_mencariLokasi;
 
   // ------------------------------------------------------------------
   // Aksi
   // ------------------------------------------------------------------
 
-  Future<void> _ambilFoto() async {
-    final FotoAbsen? foto;
-    try {
-      foto = await _kamera.ambilSelfie();
-    } on Exception {
-      if (mounted) {
-        tampilkanPesan(
-          context,
-          'Kamera tidak bisa dibuka. Izinkan akses kamera lalu coba lagi.',
-          gagal: true,
-        );
-      }
-      return;
-    }
-    if (foto == null || !mounted) return;
-    setState(() => _foto = foto);
-    if (_posisi == null) _cariLokasi();
-  }
-
-  Future<void> _cariLokasi() async {
+  Future<void> _bukaKamera({required bool pulang}) async {
+    final hasil = await _kamera.buka(
+      context,
+      judul: pulang ? 'Foto Absen Pulang' : 'Foto Absen Masuk',
+      lokasiAbsen: _info?.lokasiAbsen ?? const [],
+      lokasi: _lokasi,
+    );
+    if (hasil == null || !mounted) return;
     setState(() {
-      _mencariLokasi = true;
-      _masalahLokasi = null;
+      _foto = hasil.foto;
+      _posisi = hasil.posisi;
+      _masalahLokasi = hasil.masalahLokasi;
     });
-    try {
-      final posisi = await _lokasi.posisiSekarang();
-      if (!mounted) return;
-      setState(() {
-        _posisi = posisi;
-        _mencariLokasi = false;
-      });
-    } on LokasiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _posisi = null;
-        _masalahLokasi = e;
-        _mencariLokasi = false;
-      });
-    }
   }
 
   Future<void> _kirimAbsen(InfoAbsenHariIni info, _Tahap tahap) async {
@@ -397,7 +376,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
           _KartuFoto(foto: null, keterangan: tanggal, tinggi: 200),
           const SizedBox(height: 18),
           if (tahap == _Tahap.siapMasuk)
-            TombolUtama(teks: 'Upload Gambar', onPressed: _ambilFoto)
+            TombolUtama(
+              teks: 'Buka Kamera',
+              ikon: Icons.photo_camera_rounded,
+              onPressed: () => _bukaKamera(pulang: false),
+            )
           else
             _Catatan(
               ikon: Icons.schedule_rounded,
@@ -425,6 +408,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
           _BarisJam(
             label: 'Jam Masuk',
             jam: absensi!.jamMasuk,
+            lokasi: absensi.lokasiMasuk,
             jarak: absensi.jarakMasuk,
             catatan: absensi.terlambat
                 ? 'Terlambat ${absensi.menitTerlambat} menit'
@@ -434,7 +418,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
           const _BarisJam(label: 'Jam Keluar', jam: null),
           const SizedBox(height: 28),
           if (tahap == _Tahap.siapPulang)
-            TombolUtama(teks: 'Absen Pulang', onPressed: _ambilFoto)
+            TombolUtama(
+              teks: 'Absen Pulang',
+              ikon: Icons.photo_camera_rounded,
+              onPressed: () => _bukaKamera(pulang: true),
+            )
           else
             _Catatan(
               ikon: Icons.info_outline_rounded,
@@ -468,6 +456,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
           _BarisJam(
             label: 'Jam Masuk',
             jam: absensi!.jamMasuk,
+            lokasi: absensi.lokasiMasuk,
             jarak: absensi.jarakMasuk,
             catatan: absensi.terlambat
                 ? 'Terlambat ${absensi.menitTerlambat} menit'
@@ -477,6 +466,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
           _BarisJam(
             label: 'Jam Keluar',
             jam: absensi.jamPulang,
+            lokasi: absensi.lokasiPulang,
             jarak: absensi.jarakPulang,
             catatan: absensi.menitPulangAwal > 0
                 ? 'Pulang lebih awal ${absensi.menitPulangAwal} menit'
@@ -492,7 +482,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
     }
   }
 
-  /// Desain 2: foto baru + jam + kartu lokasi + tombol "Upload Absen".
+  /// Desain 2: foto dari kamera + jam + kartu lokasi + tombol "Kirim Absen".
   List<Widget> _tampilanSiapKirim(InfoAbsenHariIni info, _Tahap tahap) {
     final pulang = tahap == _Tahap.siapPulang;
     final jamSekarang = DateFormat('HH:mm').format(_jamServer);
@@ -508,9 +498,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
               children: [
                 _KartuFoto(foto: _foto!.bytes, tinggi: 165),
                 TextButton.icon(
-                  onPressed: _sedangMengirim ? null : _ambilFoto,
-                  icon: const Icon(Icons.cameraswitch_rounded, size: 18),
-                  label: const Text('Ulangi foto'),
+                  onPressed: _sedangMengirim
+                      ? null
+                      : () => _bukaKamera(pulang: pulang),
+                  icon: const Icon(Icons.photo_camera_rounded, size: 18),
+                  label: const Text('Foto ulang'),
                 ),
               ],
             ),
@@ -541,12 +533,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
       ),
       const SizedBox(height: 24),
       _KartuLokasi(
-        mencari: _mencariLokasi,
         masalah: _masalahLokasi,
         posisi: _posisi,
-        sekolah: info.lokasiSekolah,
-        jarak: _jarak,
-        onCobaLagi: _cariLokasi,
+        adaLokasiAbsen: info.lokasiAbsen.isNotEmpty,
+        jarakLokasi: _jarakLokasi,
+        onFotoUlang: () => _bukaKamera(pulang: pulang),
         onBukaPengaturan: _masalahLokasi == null
             ? null
             : () => _lokasi.bukaPengaturan(_masalahLokasi!.pengaturan),
@@ -564,7 +555,8 @@ class _AbsenScreenState extends State<AbsenScreen> {
       ],
       const SizedBox(height: 28),
       TombolUtama(
-        teks: 'Upload Absen',
+        teks: 'Kirim Absen',
+        ikon: Icons.send_rounded,
         sedangMemuat: _sedangMengirim,
         onPressed: _lokasiSiap ? () => _kirimAbsen(info, tahap) : null,
       ),
@@ -641,7 +633,7 @@ class _KartuFoto extends StatelessWidget {
                   if (keterangan != null) ...[
                     const SizedBox(height: 10),
                     const Text(
-                      'Ambil foto selfie untuk absen',
+                      'Foto selfie langsung dari kamera',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -694,6 +686,7 @@ class _BarisJam extends StatelessWidget {
   const _BarisJam({
     required this.label,
     required this.jam,
+    this.lokasi,
     this.jarak,
     this.catatan,
     this.tampilkanIkon = true,
@@ -703,6 +696,9 @@ class _BarisJam extends StatelessWidget {
 
   /// "HH:MM", null = belum absen ("--:--" merah).
   final String? jam;
+
+  /// Nama lokasi absen, mis. "Gedung SD".
+  final String? lokasi;
   final int? jarak;
   final String? catatan;
   final bool tampilkanIkon;
@@ -739,7 +735,8 @@ class _BarisJam extends StatelessWidget {
               Tooltip(
                 message: jarak == null
                     ? 'Lokasi tercatat'
-                    : 'Lokasi tercatat (${formatJarak(jarak!)} dari sekolah)',
+                    : 'Lokasi tercatat (${formatJarak(jarak!)} dari '
+                          '${lokasi ?? 'lokasi absen'})',
                 child: const Icon(
                   Icons.location_on_outlined,
                   color: _hijau,
@@ -750,6 +747,15 @@ class _BarisJam extends StatelessWidget {
                 message: 'Foto absen tersimpan',
                 child: Icon(Icons.how_to_reg_rounded, color: _hijau, size: 22),
               ),
+              if (lokasi != null)
+                Text(
+                  lokasi!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.teksAbu,
+                  ),
+                ),
             ],
             if (catatan != null)
               Text(
@@ -767,24 +773,25 @@ class _BarisJam extends StatelessWidget {
   }
 }
 
-/// Kartu abu-abu berisi ikon lokasi & status jarak ke sekolah (desain 2).
+/// Kartu abu-abu berisi ikon lokasi & lokasi absen terdekat (desain 2).
+/// Lokasi yang ditampilkan adalah posisi GPS saat foto diambil.
 class _KartuLokasi extends StatelessWidget {
   const _KartuLokasi({
-    required this.mencari,
     required this.masalah,
     required this.posisi,
-    required this.sekolah,
-    required this.jarak,
-    required this.onCobaLagi,
+    required this.adaLokasiAbsen,
+    required this.jarakLokasi,
+    required this.onFotoUlang,
     this.onBukaPengaturan,
   });
 
-  final bool mencari;
   final LokasiException? masalah;
   final PosisiAbsen? posisi;
-  final LokasiSekolah? sekolah;
-  final int? jarak;
-  final VoidCallback onCobaLagi;
+  final bool adaLokasiAbsen;
+
+  /// Jarak ke setiap lokasi absen, terdekat di atas.
+  final List<JarakLokasi> jarakLokasi;
+  final VoidCallback onFotoUlang;
   final VoidCallback? onBukaPengaturan;
 
   @override
@@ -792,41 +799,38 @@ class _KartuLokasi extends StatelessWidget {
     final Color warnaIkon;
     final String judul;
     String? keterangan;
-    var tombolCobaLagi = false;
+    var tombolFotoUlang = false;
+    final terpilih = lokasiAbsenTerpilih(jarakLokasi);
 
-    if (mencari) {
-      warnaIkon = Colors.black;
-      judul = 'Mendeteksi lokasi...';
-    } else if (masalah != null) {
+    if (masalah != null || posisi == null) {
       warnaIkon = AppColors.merah;
-      judul = 'Lokasi belum terbaca';
-      keterangan = masalah!.pesan;
-      tombolCobaLagi = true;
-    } else if (posisi == null) {
-      warnaIkon = Colors.black;
-      judul = 'Lokasi belum dideteksi';
-      tombolCobaLagi = true;
+      judul = 'Lokasi tidak terbaca saat foto diambil';
+      keterangan = masalah?.pesan;
+      tombolFotoUlang = true;
     } else if (posisi!.palsu) {
       warnaIkon = AppColors.merah;
       judul = 'Terdeteksi lokasi palsu';
-      keterangan = 'Matikan aplikasi Fake GPS lalu coba lagi.';
-      tombolCobaLagi = true;
-    } else if (sekolah == null) {
+      keterangan = 'Matikan aplikasi Fake GPS lalu foto ulang.';
+      tombolFotoUlang = true;
+    } else if (!adaLokasiAbsen || terpilih == null) {
       warnaIkon = AppColors.hijau;
       judul = 'Lokasi terbaca';
       keterangan =
-          'Titik lokasi sekolah belum diatur admin, jadi jarak tidak dicek.';
-    } else if (jarak! <= sekolah!.radius) {
+          'Admin belum menambahkan lokasi absen, jadi jarak tidak dicek.';
+    } else if (terpilih.diDalam) {
       warnaIkon = AppColors.hijau;
-      judul = 'Kamu berada di area sekolah';
-      keterangan = '± ${formatJarak(jarak!)} dari titik absen';
+      judul = 'Kamu berada di ${terpilih.lokasi.nama}';
+      keterangan =
+          'Lokasi ${terpilih.lokasi.nomor} • ± ${formatJarak(terpilih.jarak)} '
+          'dari titik absen';
     } else {
       warnaIkon = AppColors.merah;
-      judul = 'Di luar area sekolah';
+      judul = 'Di luar area lokasi absen';
       keterangan =
-          '± ${formatJarak(jarak!)} dari sekolah (maksimal '
-          '${sekolah!.radius} m). Mendekatlah ke sekolah lalu coba lagi.';
-      tombolCobaLagi = true;
+          'Terdekat: ${terpilih.lokasi.namaLengkap}, ± '
+          '${formatJarak(terpilih.jarak)} (maksimal ${terpilih.lokasi.radius} m). '
+          'Mendekatlah ke lokasi absen lalu foto ulang.';
+      tombolFotoUlang = true;
     }
 
     return Container(
@@ -867,14 +871,6 @@ class _KartuLokasi extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          if (mencari)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: LoadingDots(
-                ukuran: 8,
-                warna: [AppColors.navy, Colors.white, AppColors.navy],
-              ),
-            ),
           Text(
             judul,
             textAlign: TextAlign.center,
@@ -892,14 +888,66 @@ class _KartuLokasi extends StatelessWidget {
               style: const TextStyle(fontSize: 12.5, color: Color(0xFF3F3F46)),
             ),
           ],
-          if (tombolCobaLagi)
+          // Jarak ke semua lokasi absen (jika lebih dari satu)
+          if (jarakLokasi.length > 1 && posisi != null && !posisi!.palsu) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                children: [
+                  for (final j in jarakLokasi)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          Icon(
+                            j.diDalam
+                                ? Icons.check_circle_rounded
+                                : Icons.radio_button_unchecked_rounded,
+                            size: 16,
+                            color: j.diDalam
+                                ? AppColors.hijau
+                                : AppColors.teksAbu,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              j.lokasi.namaLengkap,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: identical(j, terpilih)
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: AppColors.teks,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            formatJarak(j.jarak),
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.teks,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+          if (tombolFotoUlang)
             Wrap(
               alignment: WrapAlignment.center,
               children: [
                 TextButton.icon(
-                  onPressed: onCobaLagi,
-                  icon: const Icon(Icons.my_location_rounded, size: 18),
-                  label: const Text('Coba lagi'),
+                  onPressed: onFotoUlang,
+                  icon: const Icon(Icons.photo_camera_rounded, size: 18),
+                  label: const Text('Foto ulang'),
                 ),
                 if (onBukaPengaturan != null &&
                     masalah?.pengaturan != PengaturanLokasi.tidakAda)

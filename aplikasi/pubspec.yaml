@@ -24,8 +24,9 @@ dependencies:
   intl: ^0.20.3
   # Membuka lampiran (PDF) di browser/aplikasi lain
   url_launcher: ^6.3.3
-  # Absen: mengambil foto selfie dari kamera
-  image_picker: ^1.2.4
+  # Absen: kamera langsung di dalam aplikasi (bukan unggah dari galeri)
+  # (rentang versi agar cocok untuk Flutter 3.38 ke atas)
+  camera: ">=0.12.0 <0.13.0"
   # Absen: membaca lokasi GPS
   geolocator: ^14.1.2
 

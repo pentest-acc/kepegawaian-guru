@@ -23,17 +23,23 @@ void main() {
       expect(info.jamKerja.jamPulang, '14:00');
       expect(info.toleransiMenit, 15);
       expect(info.absenPulangMulai, '13:00');
-      expect(info.lokasiSekolah!.radius, 100);
+      expect(info.lokasiAbsen.map((l) => l.namaLengkap), [
+        'Lokasi 1 • Gedung TK',
+        'Lokasi 2 • Gedung SD',
+        'Lokasi 3 • Gedung KB',
+      ]);
+      expect(info.lokasiAbsen[1].radius, 150);
+      expect(info.absensi!.lokasiMasuk, 'Gedung SD');
       expect(info.absensi!.sudahMasuk, isTrue);
       expect(info.absensi!.sudahPulang, isTrue);
       expect(info.absensi!.adaFotoPulang, isTrue);
     });
 
-    test('Tanpa lokasi sekolah & belum absen', () {
+    test('Tanpa lokasi absen & belum absen', () {
       final info = InfoAbsenHariIni.fromJson(
         jsonHariIniContoh(adaLokasi: false, libur: 'Hari Minggu'),
       );
-      expect(info.lokasiSekolah, isNull);
+      expect(info.lokasiAbsen, isEmpty);
       expect(info.absensi, isNull);
       expect(info.libur, 'Hari Minggu');
     });
@@ -51,17 +57,72 @@ void main() {
     test('Jarak GPS (Haversine) & format jarak', () {
       // 0,01 derajat lintang ~ 1,1 km (sama dengan hitungan server)
       expect(jarakMeter(-6.1702, 107.0251, -6.1802, 107.0251).round(), 1112);
-      const sekolah = LokasiSekolah(lat: -6.1702, lng: 107.0251, radius: 100);
-      expect(sekolah.jarakDari(-6.17035, 107.02525), inInclusiveRange(20, 30));
+      const tk = LokasiAbsen(
+        nama: 'Gedung TK',
+        lat: -6.1702,
+        lng: 107.0251,
+        radius: 100,
+      );
+      expect(tk.jarakDari(-6.17035, 107.02525), inInclusiveRange(20, 30));
       expect(formatJarak(350), '350 m');
       expect(formatJarak(1112), '1,1 km');
     });
 
+    test('Lokasi terdekat dari banyak lokasi absen', () {
+      final daftar = [
+        for (final l in jsonLokasiContoh) LokasiAbsen.fromJson(l),
+      ];
+
+      // ± 30 m dari Gedung SD
+      final urut = urutkanLokasi(daftar, -6.17527, 107.03);
+      expect(urut.map((j) => j.lokasi.nama), [
+        'Gedung SD',
+        'Gedung TK',
+        'Gedung KB',
+      ]);
+      final terpilih = lokasiAbsenTerpilih(urut)!;
+      expect(terpilih.lokasi.nomor, 2);
+      expect(terpilih.diDalam, isTrue);
+
+      // Di luar semua radius: tetap ditunjukkan lokasi terdekat
+      final jauh = lokasiAbsenTerpilih(urutkanLokasi(daftar, -6.1836, 107.02))!;
+      expect(jauh.lokasi.nama, 'Gedung KB');
+      expect(jauh.jarak, 400);
+      expect(jauh.diDalam, isFalse);
+
+      // Radius tumpang tindih: dipilih yang terdekat di antara yang mencakup
+      final besar = [
+        const LokasiAbsen(nama: 'A', lat: 0, lng: 0, radius: 5000),
+        const LokasiAbsen(nama: 'B', lat: 0, lng: 0.01, radius: 50),
+      ];
+      expect(
+        lokasiAbsenTerpilih(urutkanLokasi(besar, 0, 0.0098))!.lokasi.nama,
+        'B',
+      );
+      expect(lokasiAbsenTerpilih(const []), isNull);
+    });
+
+    test('LokasiAbsen ke JSON untuk disimpan admin', () {
+      const baru = LokasiAbsen(
+        nama: 'Gedung SD',
+        lat: -6.175,
+        lng: 107.03,
+        radius: 150,
+      );
+      expect(baru.toJson(), {
+        'nama': 'Gedung SD',
+        'lat': -6.175,
+        'lng': 107.03,
+        'radius': 150,
+        'aktif': true,
+      });
+      final lama = LokasiAbsen.fromJson(jsonLokasiContoh.first);
+      expect(lama.toJson()['id_lokasi'], 1);
+    });
+
     test('PengaturanAbsen bolak-balik JSON', () {
       final asli = {
-        'lokasi_lat': -6.1702113,
-        'lokasi_lng': 107.0251456,
-        'radius_absen': 150,
+        'jumlah_lokasi': 3,
         'toleransi_terlambat': 10,
         'alamat_yayasan': 'Bekasi',
         'jam_kerja': [
@@ -69,9 +130,10 @@ void main() {
         ],
       };
       final p = PengaturanAbsen.fromJson(asli);
-      expect(p.lokasiDiatur, isTrue);
+      expect(p.jumlahLokasi, 3);
       final json = p.toJson();
-      expect(json['radius_absen'], 150);
+      expect(json['toleransi_terlambat'], 10);
+      expect(json.containsKey('jumlah_lokasi'), isFalse);
       expect(json['jam_kerja'], [
         {'unit': 'TK', 'jam_masuk': '07:00', 'jam_pulang': '13:00'},
       ]);

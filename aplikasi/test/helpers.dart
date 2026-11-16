@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:kepegawaian_guru/models/absensi.dart';
+import 'package:kepegawaian_guru/screens/guru/kamera_absen_screen.dart';
 import 'package:kepegawaian_guru/services/absen_service.dart';
 import 'package:kepegawaian_guru/services/api_service.dart';
 import 'package:kepegawaian_guru/services/auth_service.dart';
@@ -151,12 +154,45 @@ Map<String, dynamic> jsonAbsensiContoh({
   'status': status,
   'menit_terlambat': menitTerlambat,
   'menit_pulang_awal': menitPulangAwal,
+  'lokasi_masuk': masuk == null ? null : 'Gedung SD',
   'jarak_masuk': masuk == null ? null : 24,
+  'lokasi_pulang': pulang == null ? null : 'Gedung SD',
   'jarak_pulang': pulang == null ? null : 24,
   'ada_foto_masuk': masuk != null,
   'ada_foto_pulang': pulang != null,
   'keterangan': null,
 };
+
+/// 3 lokasi absen contoh (3 gedung Yayasan yang terpencar).
+const List<Map<String, dynamic>> jsonLokasiContoh = [
+  {
+    'id_lokasi': 1,
+    'nomor': 1,
+    'nama': 'Gedung TK',
+    'lat': -6.1702,
+    'lng': 107.0251,
+    'radius': 100,
+    'aktif': true,
+  },
+  {
+    'id_lokasi': 2,
+    'nomor': 2,
+    'nama': 'Gedung SD',
+    'lat': -6.175,
+    'lng': 107.03,
+    'radius': 150,
+    'aktif': true,
+  },
+  {
+    'id_lokasi': 3,
+    'nomor': 3,
+    'nama': 'Gedung KB',
+    'lat': -6.18,
+    'lng': 107.02,
+    'radius': 100,
+    'aktif': true,
+  },
+];
 
 /// Contoh data `absen/hari_ini.php` (Selasa, 10 November 2026, guru SD).
 Map<String, dynamic> jsonHariIniContoh({
@@ -177,9 +213,7 @@ Map<String, dynamic> jsonHariIniContoh({
   },
   'absen_masuk_mulai': '05:00',
   'absen_pulang_mulai': '13:00',
-  'lokasi_sekolah': adaLokasi
-      ? {'lat': -6.1702, 'lng': 107.0251, 'radius': 100}
-      : null,
+  'lokasi_absen': adaLokasi ? jsonLokasiContoh : const [],
   'absensi': absensi,
 };
 
@@ -195,15 +229,32 @@ AbsenService buatAbsenPalsu(
   return AbsenService(api: api);
 }
 
-/// Kamera palsu: langsung mengembalikan foto kecil (atau null = dibatalkan).
+/// Kamera palsu: langsung "memotret" foto kecil dan membaca lokasi dari
+/// [LokasiPerangkat] yang diberikan (sama seperti kamera asli).
 class KameraPalsu extends KameraAbsen {
-  const KameraPalsu({this.batal = false});
+  KameraPalsu({this.batal = false});
 
   final bool batal;
 
+  /// Judul kamera terakhir yang dibuka, mis. "Foto Absen Pulang".
+  String? judulTerakhir;
+
   @override
-  Future<FotoAbsen?> ambilSelfie() async =>
-      batal ? null : FotoAbsen(bytes: fotoPngKecil, namaFile: 'selfie.png');
+  Future<HasilKamera?> buka(
+    BuildContext context, {
+    required String judul,
+    required List<LokasiAbsen> lokasiAbsen,
+    required LokasiPerangkat lokasi,
+  }) async {
+    judulTerakhir = judul;
+    if (batal) return null;
+    final foto = FotoAbsen(bytes: fotoPngKecil, namaFile: 'absen.jpg');
+    try {
+      return HasilKamera(foto: foto, posisi: await lokasi.posisiSekarang());
+    } on LokasiException catch (e) {
+      return HasilKamera(foto: foto, masalahLokasi: e);
+    }
+  }
 }
 
 /// GPS palsu: mengembalikan posisi tertentu atau melempar [LokasiException].

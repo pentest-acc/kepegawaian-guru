@@ -21,6 +21,7 @@ erDiagram
     pengguna |o--o{ absensi : "mengoreksi (admin)"
     pengguna |o--o{ cuti : "memproses (admin)"
     jam_kerja_unit ||--o{ pengguna : "jam kerja unit"
+    lokasi_absen |o--o{ absensi : "lokasi masuk/pulang"
 
     pengguna {
         INT id_pengguna PK
@@ -71,7 +72,17 @@ erDiagram
         ENUM status
         SMALLINT menit_terlambat
         SMALLINT menit_pulang_awal
+        INT id_lokasi_masuk FK
+        INT id_lokasi_pulang FK
         INT dikoreksi_oleh FK
+    }
+    lokasi_absen {
+        INT id_lokasi PK
+        VARCHAR nama UK
+        DECIMAL lat
+        DECIMAL lng
+        SMALLINT radius
+        BOOLEAN aktif
     }
     cuti {
         INT id_cuti PK
@@ -101,9 +112,6 @@ erDiagram
     pengaturan {
         TINYINT id_pengaturan PK
         SMALLINT toleransi_terlambat
-        DECIMAL lokasi_lat
-        DECIMAL lokasi_lng
-        SMALLINT radius_absen
         TINYINT kuota_cuti_tahunan
     }
 ```
@@ -208,7 +216,8 @@ Jam masuk/pulang diisi dari jam **server**. Foto disimpan di `backend/uploads/ab
 | status | ENUM | hadir, terlambat, izin, sakit, cuti, alpa |
 | menit_terlambat | SMALLINT | Lama terlambat dari jam masuk unit (menit), diisi jika lewat toleransi |
 | menit_pulang_awal | SMALLINT | Absen pulang sebelum jam pulang unitnya (menit), untuk rekap admin |
-| jarak_masuk, jarak_pulang | INT | Jarak dari titik lokasi sekolah saat absen (meter), NULL jika lokasi sekolah belum diatur |
+| id_lokasi_masuk, id_lokasi_pulang | INT, FK → lokasi_absen | Lokasi absen terdekat saat absen (NULL jika belum ada lokasi absen, atau lokasinya sudah dihapus) |
+| jarak_masuk, jarak_pulang | INT | Jarak ke lokasi absen terdekat saat absen (meter) |
 | keterangan | VARCHAR(255) | Catatan / alasan koreksi |
 | dikoreksi_oleh | INT, FK → pengguna | Admin yang mengoreksi |
 
@@ -243,8 +252,6 @@ Jam masuk/pulang diisi dari jam **server**. Foto disimpan di `backend/uploads/ab
 | id_pengaturan | TINYINT, PK | Selalu 1 |
 | nama_yayasan, alamat_yayasan | VARCHAR | Identitas Yayasan |
 | toleransi_terlambat | SMALLINT | Menit (default 15) |
-| lokasi_lat, lokasi_lng | DECIMAL(10,7) | Titik lokasi absen (diisi admin) |
-| radius_absen | SMALLINT | Jarak maksimal absen dari titik lokasi (meter) |
 | kuota_cuti_tahunan | TINYINT | Jatah cuti per tahun (hari) |
 
 ### 10. `jam_kerja_unit` — jam masuk & pulang guru per unit
@@ -257,6 +264,19 @@ Jam masuk/pulang diisi dari jam **server**. Foto disimpan di `backend/uploads/ab
 
 Tombol absen pulang di aplikasi muncul mulai jam pulang **paling awal** (13:00). Guru yang absen pulang sebelum jam pulang unitnya sendiri tercatat di `absensi.menit_pulang_awal`. Diatur admin di menu **Pengaturan Sistem**.
 
+### 11. `lokasi_absen` — titik-titik lokasi absen
+
+Admin bisa menambah banyak lokasi (mis. 3 gedung Yayasan yang terpencar) di menu **Lokasi Absen**. Guru boleh absen jika berada di dalam radius **salah satu** lokasi yang aktif; yang dicatat di `absensi` adalah lokasi terdekat. Jika tabel ini kosong, jarak tidak dicek.
+
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id_lokasi | INT, PK | ID lokasi (urutannya menjadi nomor Lokasi 1, 2, 3, ...) |
+| nama | VARCHAR(100), UK | Contoh: Gedung SD |
+| lat, lng | DECIMAL(10,7) | Titik koordinat lokasi |
+| radius | SMALLINT | Jarak maksimal absen dari titik ini (meter, bawaan 100) |
+| aktif | BOOLEAN | Lokasi nonaktif tidak dipakai untuk absen |
+| dibuat_pada, diubah_pada | DATETIME | Waktu data dibuat/diubah |
+
 ## Riwayat perubahan (migrasi)
 
 | File | Isi |
@@ -264,6 +284,7 @@ Tombol absen pulang di aplikasi muncul mulai jam pulang **paling awal** (13:00).
 | `migrasi/2026-10-09_sesi2.sql` | Sesi 2: kolom `pengguna.gelar` (nama bergelar lama dipisah otomatis), tabel `percobaan_login`, 5 info kegiatan contoh + lampiran, alamat Yayasan |
 | `migrasi/2026-10-10_sesi3.sql` | Sesi 3: index `idx_jadwal_kelas_hari`, 2 akun guru demo, jadwal mengajar contoh (hanya untuk akun demo yang belum punya jadwal). Aman dijalankan ulang |
 | `migrasi/2026-11-09_sesi4.sql` | Sesi 4: tabel `jam_kerja_unit` (jam lama di `pengaturan` dipindahkan lalu kolomnya dihapus), kolom `absensi.menit_pulang_awal`, `jarak_masuk`, `jarak_pulang`. Aman dijalankan ulang |
+| `migrasi/2026-11-16_sesi4b.sql` | Sesi 4b: tabel `lokasi_absen` (banyak lokasi), kolom `absensi.id_lokasi_masuk` & `id_lokasi_pulang`; titik lokasi lama di `pengaturan` dipindahkan menjadi "Lokasi Utama" lalu kolomnya dihapus. Aman dijalankan ulang |
 
 File migrasi hanya untuk database lama yang datanya ingin dipertahankan. Untuk instalasi baru cukup import `db_kepegawaian_guru.sql`.
 

@@ -16,10 +16,27 @@ Dikerjakan bertahap, mulai dari dasar seperti programmer pada umumnya.
 | **2** | Info Kegiatan (daftar, cari, tandai penting, detail, unduh lampiran), banner info bergulir otomatis di Beranda, logo & foto Yayasan, nama + gelar terpisah, pengamanan login | ✅ Selesai |
 | **3** | Jadwal Mengajar dengan **sistem jadwal mingguan** (guru: tab Senin–Jumat + pindah minggu; admin: atur jadwal per guru + cek bentrok), **Docker** | ✅ Selesai |
 | **4** | **Absen per mata pelajaran** dengan kamera langsung + lokasi GPS saat foto diambil, **banyak lokasi absen** (lokasi terdekat terlihat oleh guru), gedung di jadwal mengajar; admin **Monitoring Absensi** (tanda warna & ubah kehadiran), **Lokasi Absen**, **Pengaturan Sistem** | ✅ Selesai |
-| 5 | Riwayat Absen (rekap per bulan, jam kerja) | ⏳ Berikutnya |
-| 6 | Cuti / Izin (pengajuan, sisa kuota, status) | ⏳ |
+| **5** | **Riwayat Absen**: kalender setiap bulan dalam satu tahun ajaran (Semester Ganjil–Genap), hijau = hadir, merah = izin/sakit/cuti, detail absen per tanggal, rekap bulan & jam mengajar | ✅ Selesai |
+| 6 | Cuti / Izin (pengajuan, sisa kuota, status) | ⏳ Berikutnya |
 | 7 | Pengaturan & Profil | ⏳ |
 | 8+ | Halaman Admin: dashboard, data guru, kelola info, persetujuan cuti, laporan PDF/Excel (kelola jadwal sudah dibuat di Sesi 3; monitoring absensi, lokasi & pengaturan absen di Sesi 4) | ⏳ |
+
+### Yang baru di Sesi 5
+
+- **Riwayat Absen (guru)** — dibuka dari menu **Riwayat Absen** di Beranda, atau ikon riwayat di kanan atas halaman Absen.
+  1. **Tahun ajaran**: pilih bulan dari **Semester Ganjil** (Juli–Desember) atau **Semester Genap** (Januari–Juni). Bisa juga dengan tombol **‹ ›** atau menggeser kalender ke kiri/kanan. Tahun ajaran sebelumnya bisa dipilih lewat **Ganti** jika guru sudah punya riwayat di tahun itu.
+  2. **Kalender bulanan** (Minggu di kolom pertama, tanggal merah = Minggu/libur). Warna tanggal:
+     - **hijau** = semua mapel hari itu diabsen,
+     - **merah** = izin / sakit / cuti,
+     - **kuning** = hanya sebagian mapel yang diabsen,
+     - **abu-abu** = tidak absen sama sekali.
+
+     Angka kecil seperti **2/3** berarti 2 dari 3 mapel diabsen. Titik oranye menandai ada mapel yang terlambat. Hari ini dilingkari biru.
+  3. **Ketuk tanggal** untuk melihat detail setiap mapel: jam absen, terlambat berapa menit, lewat jam pelajaran, lokasi absen, catatan admin, atau nama hari liburnya.
+  4. **Rekap bulan**: jumlah hari hadir / hadir sebagian / izin-sakit-cuti / tidak absen, jumlah mapel diabsen, berapa kali terlambat, dan **jam mengajar** (total jam mapel yang diabsen).
+- Mapel dihitung mulai tanggal jadwalnya dibuat admin, jadi jadwal baru tidak membuat hari-hari sebelumnya terlihat "tidak absen". Cuti/izin/sakit yang sudah **disetujui** admin otomatis berwarna merah (dipakai oleh fitur Cuti di sesi berikutnya).
+- **Data contoh** untuk presentasi: `database/contoh/riwayat_absen_contoh.sql` mengisi riwayat absen 36 hari terakhir untuk akun guru demo (lihat bagian *Mencoba Riwayat Absen*).
+- Sesi 5 **tidak mengubah struktur database**.
 
 ### Yang baru di Sesi 4
 
@@ -78,7 +95,7 @@ kepegawaian-guru/
 │   │   ├── services/   (komunikasi ke API & penyimpanan sesi)
 │   │   ├── screens/    (halaman: splash, login, register, beranda, ...)
 │   │   ├── widgets/    (komponen yang dipakai ulang: tombol, input, loading)
-│   │   └── utils/      (validasi form, pesan snackbar)
+│   │   └── utils/      (validasi form, pesan snackbar, tanggal & tahun ajaran)
 │   ├── assets/   (font Poppins & gambar)
 │   └── test/     (unit test & widget test)
 ├── backend/      -> API PHP (lihat backend/README.md)
@@ -250,6 +267,11 @@ Mencoba absen:
 4. Login sebagai admin → **Monitoring Absensi** untuk melihat warna kehadiran setiap guru, dan ketuk mapel untuk mengubah tanda kehadiran.
 5. Saat pertama kali, aplikasi/browser meminta izin **kamera** dan **lokasi**: pilih **Izinkan/Allow**. Di Chrome laptop, yang dipakai adalah webcam laptop.
 
+Mencoba Riwayat Absen:
+
+1. (Opsional, agar kalender langsung berwarna) Di phpMyAdmin pilih database `db_kepegawaian_guru` → tab **Import** → pilih `database/contoh/riwayat_absen_contoh.sql` → **Import**. File ini mengisi riwayat absen contoh 36 hari terakhir **hanya untuk akun guru demo** (`@contoh.test`): ada hari hadir, terlambat, sakit, izin, dan tidak absen. Jangan dipakai di database yang berisi data asli.
+2. Login sebagai guru → menu **Riwayat Absen** → pilih bulan, lalu ketuk tanggal untuk melihat detailnya.
+
 Mencoba sistem jadwal: login sebagai **Admin** → **Kelola Jadwal Mengajar** → pilih guru → ubah/tambah jadwal. Lalu logout, login sebagai guru tersebut → menu **Jadwal Mengajar**: perubahan langsung terlihat, dan berlaku juga di minggu-minggu berikutnya (tekan tombol **›**).
 
 ---
@@ -267,6 +289,8 @@ flutter pub get
 ```
 
 > Jika sesi berikutnya mengubah database, akan ada file SQL tambahan + petunjuknya. Jangan import ulang `db_kepegawaian_guru.sql` kalau database sudah berisi data asli, karena file itu menghapus tabel lama.
+>
+> **Sesi 5 (Riwayat Absen) tidak mengubah database.** Cukup pastikan pembaruan database Sesi 4c di bawah sudah pernah dijalankan.
 
 ### Pembaruan database Sesi 4c — absen per mapel (wajib, cukup sekali)
 
@@ -433,5 +457,6 @@ flutter test
 | Jadwal Mengajar guru kosong | Admin belum mengatur jadwal guru tersebut (Kelola Jadwal Mengajar), atau database belum diperbarui ke Sesi 3. |
 | Absen: "Tidak ada jadwal mengajar hari ini" | Absen mengikuti jadwal mengajar. Admin perlu menambahkan jadwal guru untuk hari tersebut di **Kelola Jadwal Mengajar**. Hari Minggu dan hari libur memang tidak ada absen. |
 | Absen: tombol **Absen** belum muncul / "Absen dibuka pukul …" | Absen sebuah mapel baru dibuka beberapa menit sebelum jam mulainya (bawaan 30 menit, bisa diubah admin di **Pengaturan Sistem**). |
+| Riwayat Absen: tanggal-tanggal sebelumnya tidak berwarna | Riwayat dihitung mulai tanggal jadwal mengajar dibuat admin, dan warna baru muncul setelah guru absen. Untuk presentasi, import data contoh `database/contoh/riwayat_absen_contoh.sql` (khusus akun demo). |
 | Absen: *Unknown column* / *Table 'absensi' doesn't exist* setelah `git pull` | Database belum diperbarui ke Sesi 4c. Jalankan pembaruan database Sesi 4c di atas. |
 | Folder proyek bukan `kepegawaian-guru` | Ubah `folderProyek` di `aplikasi/lib/config/api_config.dart`. |

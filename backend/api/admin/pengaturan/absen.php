@@ -3,7 +3,7 @@
  * GET /api/admin/pengaturan/absen.php   (khusus admin)
  * Header: Authorization: Bearer <token>
  *
- * Pengaturan absen: toleransi terlambat, jam masuk/pulang setiap unit,
+ * Pengaturan absen: toleransi terlambat, jam buka absen sebelum mapel,
  * dan jumlah lokasi absen aktif (lokasinya sendiri ada di admin/lokasi/).
  */
 require_once __DIR__ . '/../../../core/bootstrap.php';

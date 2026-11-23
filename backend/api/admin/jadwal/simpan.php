@@ -8,7 +8,8 @@
  *     "id_jadwal": 5,               (kosongkan untuk jadwal baru)
  *     "id_pengguna": 2, "hari": "Senin",
  *     "jam_mulai": "07:30", "jam_selesai": "09:00",
- *     "unit": "SD", "kelas": "3B", "mata_pelajaran": "Bahasa Indonesia"
+ *     "unit": "SD", "kelas": "3B", "mata_pelajaran": "Bahasa Indonesia",
+ *     "id_lokasi": 2                (gedung tempat mengajar, boleh null)
  *   }
  *
  * Jadwal ditolak (409) jika BENTROK:
@@ -30,6 +31,7 @@ $jamSelesai = input_teks($input, 'jam_selesai');
 $unit       = strtoupper(input_teks($input, 'unit'));
 $kelas      = strtoupper(preg_replace('/\s+/', ' ', input_teks($input, 'kelas')));
 $mapel      = preg_replace('/\s+/', ' ', input_teks($input, 'mata_pelajaran'));
+$idLokasi   = (int) ($input['id_lokasi'] ?? 0);
 
 // ---------- Validasi isian ----------
 $kesalahan = [];
@@ -54,6 +56,13 @@ if (!preg_match('/^[0-9A-Za-z .\-]{1,20}$/', $kelas)) {
 }
 if (mb_strlen($mapel) < 2 || mb_strlen($mapel) > 100) {
     $kesalahan['mata_pelajaran'] = 'Mata pelajaran 2-100 karakter.';
+}
+if ($idLokasi > 0) {
+    $cekLokasi = db()->prepare('SELECT id_lokasi FROM lokasi_absen WHERE id_lokasi = ?');
+    $cekLokasi->execute([$idLokasi]);
+    if (!$cekLokasi->fetch()) {
+        $kesalahan['id_lokasi'] = 'Gedung/lokasi tidak ditemukan.';
+    }
 }
 if (!empty($kesalahan)) {
     kirim_json(422, false, reset($kesalahan), ['kesalahan' => $kesalahan]);
@@ -112,26 +121,27 @@ if ($b = $bentrokKelas->fetch()) {
 }
 
 // ---------- Simpan ----------
-$nilai = [$idGuru, $hari, $mulai, $selesai, $unit, $kelas, $mapel];
+$nilai = [$idGuru, $hari, $mulai, $selesai, $unit, $kelas, $mapel, $idLokasi > 0 ? $idLokasi : null];
 if ($idJadwal > 0) {
     $stmt = db()->prepare(
         'UPDATE jadwal_mengajar
-            SET id_pengguna = ?, hari = ?, jam_mulai = ?, jam_selesai = ?, unit = ?, kelas = ?, mata_pelajaran = ?
+            SET id_pengguna = ?, hari = ?, jam_mulai = ?, jam_selesai = ?, unit = ?, kelas = ?, mata_pelajaran = ?,
+                id_lokasi = ?
           WHERE id_jadwal = ?'
     );
     $stmt->execute(array_merge($nilai, [$idJadwal]));
     $pesan = 'Jadwal berhasil diubah.';
 } else {
     $stmt = db()->prepare(
-        'INSERT INTO jadwal_mengajar (id_pengguna, hari, jam_mulai, jam_selesai, unit, kelas, mata_pelajaran)
-         VALUES (?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO jadwal_mengajar (id_pengguna, hari, jam_mulai, jam_selesai, unit, kelas, mata_pelajaran, id_lokasi)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     );
     $stmt->execute($nilai);
     $idJadwal = (int) db()->lastInsertId();
     $pesan = 'Jadwal berhasil ditambahkan.';
 }
 
-$ambil = db()->prepare('SELECT * FROM jadwal_mengajar WHERE id_jadwal = ?');
+$ambil = db()->prepare(SQL_JADWAL . ' WHERE j.id_jadwal = ?');
 $ambil->execute([$idJadwal]);
 
 kirim_json($pesan === 'Jadwal berhasil ditambahkan.' ? 201 : 200, true, $pesan, [

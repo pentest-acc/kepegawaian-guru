@@ -25,7 +25,7 @@ if ((strtotime($sampai) - strtotime($dari)) / 86400 > 62) {
     kirim_json(422, false, 'Rentang tanggal maksimal 2 bulan.');
 }
 
-$stmt = db()->prepare('SELECT j.* FROM jadwal_mengajar j WHERE j.id_pengguna = ? ' . SQL_URUT_JADWAL);
+$stmt = db()->prepare(SQL_JADWAL . ' WHERE j.id_pengguna = ? ' . SQL_URUT_JADWAL);
 $stmt->execute([(int) $pengguna['id_pengguna']]);
 $jadwal = array_map('data_jadwal_publik', $stmt->fetchAll());
 

@@ -600,6 +600,31 @@ class _ItemTimeline extends StatelessWidget {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                    // Gedung tempat mengajar (diatur admin)
+                    if (jadwal.lokasi != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.apartment_rounded,
+                              size: 13,
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                jadwal.lokasi!,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (status != _StatusJam.biasa) ...[
                       const SizedBox(height: 6),
                       Container(

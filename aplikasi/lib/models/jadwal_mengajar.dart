@@ -12,6 +12,8 @@ class JadwalMengajar {
     required this.unit,
     required this.kelas,
     required this.mataPelajaran,
+    this.idLokasi,
+    this.lokasi,
   });
 
   /// null untuk jadwal baru yang belum disimpan.
@@ -29,6 +31,10 @@ class JadwalMengajar {
   final String unit;
   final String kelas;
   final String mataPelajaran;
+
+  /// Gedung/lokasi tempat mengajar (diatur admin), mis. "Gedung SD".
+  final int? idLokasi;
+  final String? lokasi;
 
   /// Menit sejak tengah malam, mis. "07:30" -> 450.
   static int keMenit(String jam) {
@@ -53,6 +59,10 @@ class JadwalMengajar {
     unit: json['unit'].toString(),
     kelas: json['kelas'].toString(),
     mataPelajaran: json['mata_pelajaran'].toString(),
+    idLokasi: json['id_lokasi'] == null
+        ? null
+        : int.parse(json['id_lokasi'].toString()),
+    lokasi: json['lokasi']?.toString(),
   );
 
   Map<String, dynamic> toJson() => {
@@ -64,6 +74,7 @@ class JadwalMengajar {
     'unit': unit,
     'kelas': kelas,
     'mata_pelajaran': mataPelajaran,
+    'id_lokasi': idLokasi,
   };
 }
 

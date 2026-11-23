@@ -17,7 +17,7 @@ if (!$cek->fetch()) {
     kirim_json(404, false, 'Guru tidak ditemukan.');
 }
 
-$stmt = db()->prepare('SELECT j.* FROM jadwal_mengajar j WHERE j.id_pengguna = ? ' . SQL_URUT_JADWAL);
+$stmt = db()->prepare(SQL_JADWAL . ' WHERE j.id_pengguna = ? ' . SQL_URUT_JADWAL);
 $stmt->execute([$idGuru]);
 
 kirim_json(200, true, 'Jadwal mengajar guru.', [

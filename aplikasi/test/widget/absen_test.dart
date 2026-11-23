@@ -5,8 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:kepegawaian_guru/config/app_theme.dart';
+import 'package:kepegawaian_guru/models/jadwal_mengajar.dart';
 import 'package:kepegawaian_guru/screens/admin/admin_lokasi_absen_screen.dart';
+import 'package:kepegawaian_guru/screens/admin/form_jadwal_screen.dart';
 import 'package:kepegawaian_guru/screens/admin/form_lokasi_screen.dart';
+import 'package:kepegawaian_guru/screens/admin/monitoring_absensi_screen.dart';
 import 'package:kepegawaian_guru/screens/admin/pengaturan_sistem_screen.dart';
 import 'package:kepegawaian_guru/screens/auth/login_screen.dart';
 import 'package:kepegawaian_guru/screens/guru/absen_screen.dart';
@@ -21,7 +24,7 @@ Widget bungkus(Widget halaman) =>
 /// Posisi ± 30 m dari Lokasi 2 (Gedung SD) pada [jsonLokasiContoh].
 const posisiDiGedungSd = PosisiAbsen(lat: -6.17527, lng: 107.03);
 
-/// Server palsu untuk API absen.
+/// Server palsu untuk API absen guru.
 class ServerAbsenPalsu {
   ServerAbsenPalsu(this.hariIni);
 
@@ -34,31 +37,22 @@ class ServerAbsenPalsu {
     if (path.endsWith('absen/hari_ini.php')) {
       return responJson(200, true, 'ok', hariIni);
     }
-    if (path.endsWith('absen/foto.php')) {
-      return http.Response.bytes(fotoPngKecil, 200);
-    }
-    if (path.endsWith('absen/masuk.php')) {
+    if (path.endsWith('absen/kirim.php')) {
+      final idJadwal = RegExp(
+        r'name="id_jadwal"\r\n\r\n(\d+)',
+      ).firstMatch(latin1.decode(req.bodyBytes))!.group(1)!;
       return responJson(
         201,
         true,
-        'Absen masuk berhasil pukul 06.33 di Gedung SD.',
-        {'absensi': jsonAbsensiContoh()},
-      );
-    }
-    if (path.endsWith('absen/pulang.php')) {
-      return responJson(
-        200,
-        true,
-        'Absen pulang berhasil pukul 13.05 di Gedung SD. Tercatat pulang '
-        'lebih awal 55 menit.',
-        {'absensi': jsonAbsensiContoh(pulang: '13:05', menitPulangAwal: 55)},
+        'Absen Bahasa Indonesia berhasil pukul 07.25 di Gedung SD.',
+        {'absensi': jsonAbsensiContoh(idJadwal: int.parse(idJadwal))},
       );
     }
     return responJson(404, false, 'tidak ada');
   }
 
-  bool dikirimKe(String endpoint) =>
-      permintaan.any((r) => r.url.path.endsWith(endpoint));
+  List<http.Request> dikirimKe(String endpoint) =>
+      permintaan.where((r) => r.url.path.endsWith(endpoint)).toList();
 }
 
 void main() {
@@ -87,7 +81,7 @@ void main() {
           kamera: kamera,
           lokasi: lokasi,
           // Jam HP sengaja berbeda: aplikasi harus mengikuti jam server
-          sekarang: () => DateTime(2026, 11, 10, 20, 0),
+          sekarang: () => DateTime(2026, 11, 23, 20, 0),
         ),
       ),
     );
@@ -106,67 +100,107 @@ void main() {
     return tester.widget<FilledButton>(cari);
   }
 
-  group('Absen guru', () {
-    testWidgets('Kamera + lokasi saat foto, lalu absen masuk di Gedung SD', (
+  group('Absen guru per mapel', () {
+    testWidgets('Daftar mapel hari ini, lalu absen mapel pertama', (
       tester,
     ) async {
-      final server = ServerAbsenPalsu(jsonHariIniContoh());
+      final server = ServerAbsenPalsu(jsonHariIniContoh(jam: '07:20:00'));
       final kamera = await bukaAbsen(tester, server);
 
-      // Desain 1: kartu kosong + tombol Buka Kamera (bukan unggah gambar)
-      expect(find.text('Foto selfie langsung dari kamera'), findsOneWidget);
-      expect(find.text('Upload Gambar'), findsNothing);
-      await tester.tap(find.text('Buka Kamera'));
-      await tester.pumpAndSettle();
-      expect(kamera.judulTerakhir, 'Foto Absen Masuk');
+      // Ringkasan: 0 dari 2 mapel, masuk 07.30, boleh pulang 10.40
+      expect(find.text('0/2'), findsOneWidget);
+      expect(find.text('07.30'), findsWidgets);
+      expect(find.text('10.40'), findsWidgets);
+      expect(find.text('Mapel hari ini'), findsOneWidget);
+      expect(find.text('Gedung SD'), findsOneWidget);
+      expect(find.text('Gedung TK'), findsOneWidget);
+      expect(find.text('Belum absen'), findsOneWidget);
+      // Mapel kedua (09.30) baru dibuka 30 menit sebelumnya
+      expect(find.text('Absen dibuka 09.00'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Absen'), findsOneWidget);
 
-      // Desain 2: foto + jam server + lokasi terdekat + jarak ke semua lokasi
-      expect(find.text('06:33'), findsOneWidget);
-      expect(find.text('--:--'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Absen'));
+      await tester.pumpAndSettle();
+      expect(kamera.judulTerakhir, 'Absen Bahasa Indonesia');
+
+      // Desain 2: foto + jam absen + perkiraan status + lokasi
+      expect(find.text('Absen Bahasa Indonesia'), findsOneWidget);
+      expect(find.text('07:20'), findsOneWidget);
+      expect(find.text('Tepat waktu'), findsOneWidget);
       expect(find.text('Kamu berada di Gedung SD'), findsOneWidget);
-      expect(find.text('Lokasi 2 • ± 30 m dari titik absen'), findsOneWidget);
-      expect(find.text('Lokasi 1 • Gedung TK'), findsOneWidget);
-      expect(find.text('Lokasi 2 • Gedung SD'), findsOneWidget);
-      expect(find.text('Lokasi 3 • Gedung KB'), findsOneWidget);
-      expect(find.text('30 m'), findsOneWidget);
       expect((await tombol(tester, 'Kirim Absen')).onPressed, isNotNull);
 
-      await tester.ensureVisible(find.text('Kirim Absen'));
       await tester.tap(find.text('Kirim Absen'));
       await tester.pumpAndSettle();
 
-      // Desain 3: sudah absen masuk, nama lokasi tampil, tombol hilang
-      final dikirim = server.permintaan.last;
-      expect(dikirim.url.path, endsWith('absen/masuk.php'));
-      expect(latin1.decode(dikirim.bodyBytes), contains('-6.1752700'));
+      final kirim = server.dikirimKe('absen/kirim.php');
+      expect(kirim, hasLength(1));
       expect(
-        find.text('Absen masuk berhasil pukul 06.33 di Gedung SD.'),
+        latin1.decode(kirim.single.bodyBytes),
+        contains('name="id_jadwal"\r\n\r\n1'),
+      );
+      // Kembali ke daftar: mapel pertama sudah hadir
+      expect(
+        find.text('Absen Bahasa Indonesia berhasil pukul 07.25 di Gedung SD.'),
         findsOneWidget,
       );
-      expect(find.text('Jam Masuk'), findsOneWidget);
-      expect(find.text('Gedung SD'), findsOneWidget);
-      expect(find.byIcon(Icons.how_to_reg_rounded), findsOneWidget);
-      expect(find.text('Kirim Absen'), findsNothing);
-      expect(find.text('Absen Pulang'), findsNothing);
+      expect(find.text('1/2'), findsOneWidget);
+      expect(find.text('Hadir • 07.25'), findsOneWidget);
+      expect(find.text('Absen di Gedung SD (30 m)'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Absen'), findsNothing);
+    });
+
+    testWidgets('Terlambat & lewat jam pelajaran tetap bisa absen', (
+      tester,
+    ) async {
+      // 10.00: mapel 1 (07.30-09.00) sudah selesai, mapel 2 (09.30) berlangsung
+      await bukaAbsen(
+        tester,
+        ServerAbsenPalsu(jsonHariIniContoh(jam: '10:00:00')),
+      );
+      expect(find.widgetWithText(FilledButton, 'Absen'), findsNWidgets(2));
+      expect(find.textContaining('sedang berlangsung'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Absen').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Lewat jam pelajaran • +150 menit'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.text('Batal'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Batal'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Absen').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Terlambat 30 menit'), findsOneWidget);
+      // Mapel 2 dijadwalkan di Gedung TK, guru berada di Gedung SD
+      await tester.scrollUntilVisible(
+        find.textContaining('Mapel ini dijadwalkan di Gedung TK'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(
-        find.text('Tombol absen pulang muncul pukul 13.00.'),
+        find.textContaining('Mapel ini dijadwalkan di Gedung TK'),
         findsOneWidget,
       );
+      expect((await tombol(tester, 'Kirim Absen')).onPressed, isNotNull);
     });
 
     testWidgets('Di luar semua lokasi: Kirim Absen tidak aktif', (
       tester,
     ) async {
-      final server = ServerAbsenPalsu(jsonHariIniContoh());
       await bukaAbsen(
         tester,
-        server,
+        ServerAbsenPalsu(jsonHariIniContoh()),
         // ± 400 m dari Gedung KB, lebih jauh dari lokasi lain
         lokasi: const LokasiPalsu(
           posisi: PosisiAbsen(lat: -6.1836, lng: 107.02),
         ),
       );
-      await tester.tap(find.text('Buka Kamera'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Absen'));
       await tester.pumpAndSettle();
 
       expect(find.text('Di luar area lokasi absen'), findsOneWidget);
@@ -174,7 +208,6 @@ void main() {
         find.textContaining('Terdekat: Lokasi 3 • Gedung KB, ± 400 m'),
         findsOneWidget,
       );
-      expect(find.text('Foto ulang'), findsWidgets);
       expect((await tombol(tester, 'Kirim Absen')).onPressed, isNull);
     });
 
@@ -186,7 +219,7 @@ void main() {
           posisi: PosisiAbsen(lat: -6.17527, lng: 107.03, palsu: true),
         ),
       );
-      await tester.tap(find.text('Buka Kamera'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Absen'));
       await tester.pumpAndSettle();
       expect(find.text('Terdeteksi lokasi palsu'), findsOneWidget);
       expect((await tombol(tester, 'Kirim Absen')).onPressed, isNull);
@@ -196,93 +229,233 @@ void main() {
         ServerAbsenPalsu(jsonHariIniContoh()),
         lokasi: const LokasiPalsu(gagal: 'GPS/lokasi di HP sedang mati.'),
       );
-      await tester.tap(find.text('Buka Kamera'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Absen'));
       await tester.pumpAndSettle();
       expect(
         find.text('Lokasi tidak terbaca saat foto diambil'),
         findsOneWidget,
       );
-      expect(find.text('GPS/lokasi di HP sedang mati.'), findsOneWidget);
       expect((await tombol(tester, 'Kirim Absen')).onPressed, isNull);
     });
 
-    testWidgets('Belum ada lokasi absen: jarak tidak dicek', (tester) async {
-      await bukaAbsen(
-        tester,
-        ServerAbsenPalsu(jsonHariIniContoh(adaLokasi: false)),
-      );
-      await tester.tap(find.text('Buka Kamera'));
-      await tester.pumpAndSettle();
-      expect(find.text('Lokasi terbaca'), findsOneWidget);
-      expect((await tombol(tester, 'Kirim Absen')).onPressed, isNotNull);
-    });
-
-    testWidgets('Pukul 13.05 guru SD: tombol pulang + konfirmasi pulang awal', (
+    testWidgets('Ditandai admin, semua selesai, libur, tanpa jadwal', (
       tester,
     ) async {
-      final server = ServerAbsenPalsu(
-        jsonHariIniContoh(jam: '13:05:00', absensi: jsonAbsensiContoh()),
+      await bukaAbsen(
+        tester,
+        ServerAbsenPalsu(
+          jsonHariIniContoh(
+            jam: '11:00:00',
+            mapel: [
+              jsonMapelContoh(absensi: jsonAbsensiContoh()),
+              jsonMapelContoh(
+                idJadwal: 2,
+                mulai: '09:30',
+                selesai: '10:40',
+                absensi: jsonAbsensiContoh(
+                  idJadwal: 2,
+                  jamAbsen: null,
+                  status: 'sakit',
+                  keterangan: 'Surat dokter',
+                  diubahAdmin: true,
+                ),
+              ),
+            ],
+          ),
+        ),
       );
-      final kamera = await bukaAbsen(tester, server);
-
-      expect(server.dikirimKe('absen/foto.php'), isTrue);
-      await tester.tap(find.text('Absen Pulang'));
-      await tester.pumpAndSettle();
-      expect(kamera.judulTerakhir, 'Foto Absen Pulang');
-      expect(find.text('13:05'), findsOneWidget); // jam keluar (jam server)
+      expect(find.text('Sakit (diisi admin)'), findsOneWidget);
+      expect(find.text('Catatan admin: Surat dokter'), findsOneWidget);
       expect(
-        find.textContaining('tercatat pulang lebih awal 55 menit'),
+        find.text(
+          'Semua mapel hari ini sudah selesai. Kamu sudah boleh pulang.',
+        ),
         findsOneWidget,
       );
+      expect(find.widgetWithText(FilledButton, 'Absen'), findsNothing);
 
-      await tombol(tester, 'Kirim Absen');
-      await tester.tap(find.text('Kirim Absen'));
-      await tester.pumpAndSettle();
-      expect(find.text('Pulang lebih awal?'), findsOneWidget);
-
-      // Batal: tidak ada yang dikirim
-      await tester.tap(find.text('Batal'));
-      await tester.pumpAndSettle();
-      expect(server.dikirimKe('absen/pulang.php'), isFalse);
-
-      await tester.tap(find.text('Kirim Absen'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Tetap Absen'));
-      await tester.pumpAndSettle();
-
-      expect(server.dikirimKe('absen/pulang.php'), isTrue);
-      expect(
-        find.text('Absen hari ini sudah lengkap. Terima kasih!'),
-        findsOneWidget,
-      );
-      expect(find.text('Pulang lebih awal 55 menit'), findsOneWidget);
-      expect(find.text('Gedung SD'), findsNWidgets(2)); // lokasi masuk & pulang
-      expect(find.text('Masuk'), findsOneWidget);
-      expect(find.text('Pulang'), findsOneWidget);
-    });
-
-    testWidgets('Hari libur & waktu absen masuk sudah lewat', (tester) async {
       await bukaAbsen(
         tester,
         ServerAbsenPalsu(jsonHariIniContoh(libur: 'Hari Raya Natal')),
       );
       expect(find.text('Hari ini libur'), findsOneWidget);
-      expect(find.textContaining('Hari Raya Natal'), findsOneWidget);
-      expect(find.text('Buka Kamera'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Absen'), findsNothing);
 
-      await bukaAbsen(
-        tester,
-        ServerAbsenPalsu(jsonHariIniContoh(jam: '15:00:00')),
-      );
-      expect(
-        find.textContaining('Waktu absen masuk sudah lewat'),
-        findsOneWidget,
-      );
-      expect(find.text('Buka Kamera'), findsNothing);
+      await bukaAbsen(tester, ServerAbsenPalsu(jsonHariIniContoh(mapel: [])));
+      expect(find.text('Tidak ada jadwal mengajar hari ini'), findsOneWidget);
     });
   });
 
   group('Admin', () {
+    testWidgets('Monitoring Absensi: warna penanda & ubah kehadiran', (
+      tester,
+    ) async {
+      layarHp(tester);
+      final permintaan = <http.Request>[];
+      final service = buatAbsenPalsu((req) async {
+        permintaan.add(req);
+        if (req.url.path.endsWith('harian.php')) {
+          return responJson(200, true, 'ok', {
+            'tanggal': '2026-11-23',
+            'hari': 'Senin',
+            'waktu_server': '2026-11-23 12:30:00',
+            'libur': null,
+            'toleransi_menit': 15,
+            'guru': [
+              {
+                'id_pengguna': 4,
+                'nomor_induk': '12345678912',
+                'nama_tampil': 'Ahmad Fauzi, S.Pd.I.',
+                'unit': 'SD',
+                'mapel': [
+                  jsonMapelContoh(
+                    idJadwal: 16,
+                    mapel: 'Pendidikan Agama Islam',
+                    kelas: '2A',
+                  ),
+                ],
+              },
+              {
+                'id_pengguna': 2,
+                'nomor_induk': '12345678910',
+                'nama_tampil': 'Guru Contoh, S.Pd.',
+                'unit': 'SD',
+                'mapel': [
+                  jsonMapelContoh(absensi: jsonAbsensiContoh()),
+                  jsonMapelContoh(
+                    idJadwal: 3,
+                    mulai: '10:40',
+                    selesai: '11:50',
+                    absensi: jsonAbsensiContoh(
+                      id: 9,
+                      idJadwal: 3,
+                      mulai: '10:40',
+                      selesai: '11:50',
+                      jamAbsen: '12:30',
+                      status: 'terlambat',
+                      menitTerlambat: 110,
+                      lewatJam: true,
+                    ),
+                  ),
+                ],
+              },
+            ],
+          });
+        }
+        return responJson(200, true, 'ok', {
+          'absensi': jsonAbsensiContoh(jamAbsen: null, diubahAdmin: true),
+        });
+      });
+
+      await tester.pumpWidget(
+        bungkus(
+          MonitoringAbsensiScreen(
+            absenService: service,
+            tanggal: DateTime(2026, 11, 23),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(permintaan.first.url.queryParameters['tanggal'], '2026-11-23');
+      expect(find.text('Senin, 23 November 2026'), findsOneWidget);
+      expect(find.text('Hadir: 1'), findsOneWidget);
+      expect(find.text('Terlambat: 1'), findsOneWidget);
+      expect(find.text('Belum absen: 1'), findsOneWidget);
+      expect(find.text('Hadir • 07.25'), findsOneWidget);
+      expect(
+        find.text('Lewat jam pelajaran • +110 menit • 12.30'),
+        findsOneWidget,
+      );
+      expect(find.text('Belum absen'), findsOneWidget);
+
+      // Ahmad lupa absen: admin menandai hadir
+      await tester.tap(find.textContaining('Pendidikan Agama Islam'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Hadir'));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).last, 'Lupa absen');
+      await tester.tap(find.widgetWithText(FilledButton, 'Simpan'));
+      await tester.pumpAndSettle();
+
+      final ubah = permintaan.firstWhere(
+        (r) => r.url.path.endsWith('ubah.php'),
+      );
+      expect(jsonDecode(ubah.body), {
+        'id_jadwal': 16,
+        'tanggal': '2026-11-23',
+        'status': 'hadir',
+        'keterangan': 'Lupa absen',
+      });
+      expect(
+        find.text('Kehadiran Ahmad Fauzi, S.Pd.I. disimpan.'),
+        findsOneWidget,
+      );
+      // Data dimuat ulang setelah disimpan
+      expect(
+        permintaan.where((r) => r.url.path.endsWith('harian.php')),
+        hasLength(2),
+      );
+    });
+
+    testWidgets('Form jadwal: pilih gedung tempat mengajar', (tester) async {
+      layarHp(tester);
+      final jadwalDikirim = <Map<String, dynamic>>[];
+      final jadwalService = buatJadwalPalsu((req) async {
+        final body = jsonDecode(req.body) as Map<String, dynamic>;
+        jadwalDikirim.add(body);
+        return responJson(200, true, 'ok', {
+          'jadwal': {...body, 'id_jadwal': 1, 'lokasi': 'Gedung SD'},
+        });
+      });
+      final absenService = buatAbsenPalsu(
+        (req) async =>
+            responJson(200, true, 'ok', {'lokasi': jsonLokasiContoh}),
+      );
+
+      await tester.pumpWidget(
+        bungkus(
+          FormJadwalScreen(
+            guru: const GuruRingkas(
+              idPengguna: 2,
+              nomorInduk: '12345678910',
+              namaTampil: 'Guru Contoh, S.Pd.',
+              jabatan: 'Guru Kelas',
+              status: 'aktif',
+              jumlahJadwal: 0,
+              unit: 'SD',
+            ),
+            jadwal: const JadwalMengajar(
+              idJadwal: 1,
+              idPengguna: 2,
+              hari: 'Senin',
+              jamMulai: '07:30',
+              jamSelesai: '09:00',
+              unit: 'SD',
+              kelas: '3B',
+              mataPelajaran: 'Bahasa Indonesia',
+            ),
+            jadwalService: jadwalService,
+            absenService: absenService,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Belum ditentukan'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('pilih-gedung')));
+      await tester.tap(find.byKey(const Key('pilih-gedung')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Lokasi 2 • Gedung SD').last);
+      await tester.pumpAndSettle();
+
+      final simpan = find.widgetWithText(FilledButton, 'Simpan Perubahan');
+      await tester.ensureVisible(simpan);
+      await tester.tap(simpan);
+      await tester.pumpAndSettle();
+      expect(jadwalDikirim.single['id_lokasi'], 2);
+    });
+
     testWidgets('Lokasi Absen: daftar, tambah lokasi ke-4, hapus', (
       tester,
     ) async {
@@ -402,18 +575,16 @@ void main() {
       expect(FormLokasiScreen.bacaKoordinat('-96.1, 107'), isNull);
     });
 
-    testWidgets('Pengaturan Sistem: jam kerja & toleransi', (tester) async {
+    testWidgets('Pengaturan Sistem: toleransi & jam buka absen', (
+      tester,
+    ) async {
       layarHp(tester);
       final permintaan = <http.Request>[];
       Map<String, dynamic> data = {
         'toleransi_terlambat': 15,
+        'buka_absen_menit': 30,
         'jumlah_lokasi': 3,
         'alamat_yayasan': 'PUP Sektor V Blok O2',
-        'jam_kerja': [
-          {'unit': 'KB', 'jam_masuk': '07:00', 'jam_pulang': '13:00'},
-          {'unit': 'TK', 'jam_masuk': '07:00', 'jam_pulang': '13:00'},
-          {'unit': 'SD', 'jam_masuk': '07:00', 'jam_pulang': '14:00'},
-        ],
       };
       final service = buatAbsenPalsu((req) async {
         permintaan.add(req);
@@ -430,8 +601,8 @@ void main() {
 
       expect(find.text('PUP Sektor V Blok O2'), findsOneWidget);
       expect(find.text('3 lokasi absen aktif'), findsOneWidget);
-      expect(find.text('Unit TK'), findsOneWidget);
-      expect(find.textContaining('mulai pukul 13.00'), findsOneWidget);
+      expect(find.textContaining('jadwal mengajarnya'), findsOneWidget);
+      expect(find.textContaining('Unit TK'), findsNothing);
 
       // Toleransi tidak valid ditolak sebelum dikirim
       await tester.enterText(find.widgetWithText(TextFormField, '15'), '500');
@@ -443,15 +614,15 @@ void main() {
       expect(permintaan.where((r) => r.method == 'POST'), isEmpty);
 
       await tester.enterText(find.widgetWithText(TextFormField, '500'), '10');
+      await tester.enterText(find.widgetWithText(TextFormField, '30'), '45');
       await tester.ensureVisible(simpan);
       await tester.tap(simpan);
       await tester.pumpAndSettle();
 
-      final dikirim = jsonDecode(permintaan.last.body) as Map<String, dynamic>;
-      expect(permintaan.last.url.path, endsWith('simpan_absen.php'));
-      expect(dikirim['toleransi_terlambat'], 10);
-      expect(dikirim.containsKey('lokasi_lat'), isFalse);
-      expect((dikirim['jam_kerja'] as List).length, 3);
+      expect(jsonDecode(permintaan.last.body), {
+        'toleransi_terlambat': 10,
+        'buka_absen_menit': 45,
+      });
       expect(find.text('Pengaturan absen disimpan.'), findsOneWidget);
     });
   });

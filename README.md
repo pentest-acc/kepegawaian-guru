@@ -15,23 +15,24 @@ Dikerjakan bertahap, mulai dari dasar seperti programmer pada umumnya.
 | **1** | Fondasi proyek, rancangan database lengkap, API login/register, animasi splash & loading, Login, Register, Beranda Guru | ✅ Selesai |
 | **2** | Info Kegiatan (daftar, cari, tandai penting, detail, unduh lampiran), banner info bergulir otomatis di Beranda, logo & foto Yayasan, nama + gelar terpisah, pengamanan login | ✅ Selesai |
 | **3** | Jadwal Mengajar dengan **sistem jadwal mingguan** (guru: tab Senin–Jumat + pindah minggu; admin: atur jadwal per guru + cek bentrok), **Docker** | ✅ Selesai |
-| **4** | **Absen** dengan kamera langsung + lokasi GPS saat foto diambil, **banyak lokasi absen** (lokasi terdekat terlihat oleh guru), jam masuk/pulang dari jam server, terlambat, pulang lebih awal; admin **Lokasi Absen** & **Pengaturan Sistem** | ✅ Selesai |
+| **4** | **Absen per mata pelajaran** dengan kamera langsung + lokasi GPS saat foto diambil, **banyak lokasi absen** (lokasi terdekat terlihat oleh guru), gedung di jadwal mengajar; admin **Monitoring Absensi** (tanda warna & ubah kehadiran), **Lokasi Absen**, **Pengaturan Sistem** | ✅ Selesai |
 | 5 | Riwayat Absen (rekap per bulan, jam kerja) | ⏳ Berikutnya |
 | 6 | Cuti / Izin (pengajuan, sisa kuota, status) | ⏳ |
 | 7 | Pengaturan & Profil | ⏳ |
-| 8+ | Halaman Admin: dashboard, data guru, kelola info, monitoring absensi, persetujuan cuti, laporan PDF/Excel (kelola jadwal sudah dibuat di Sesi 3, lokasi & pengaturan absen di Sesi 4) | ⏳ |
+| 8+ | Halaman Admin: dashboard, data guru, kelola info, persetujuan cuti, laporan PDF/Excel (kelola jadwal sudah dibuat di Sesi 3; monitoring absensi, lokasi & pengaturan absen di Sesi 4) | ⏳ |
 
 ### Yang baru di Sesi 4
 
-- **Absen (guru)** sesuai desain:
-  1. Tekan **Buka Kamera** → kamera langsung terbuka **di dalam aplikasi** (kamera depan). Foto **tidak bisa diambil dari galeri**.
-  2. Selama kamera terbuka, lokasi GPS dipantau terus dan **lokasi absen terdekat** tampil di atas kamera, mis. *Lokasi 2 • Gedung SD • 30 m*. Posisi GPS saat tombol foto ditekan ikut disimpan bersama fotonya.
-  3. Setelah foto, kartu abu-abu menampilkan lokasi terdekat dan **jarak ke semua lokasi absen**: hijau jika di dalam radius salah satu lokasi, merah jika di luar semuanya (tombol **Kirim Absen** tidak bisa ditekan, guru diminta mendekat lalu foto ulang).
-  4. Tekan **Kirim Absen**. Setelah absen masuk, tombol hilang dan tampil **Jam Masuk** beserta ikon lokasi, ikon foto tersimpan, dan nama lokasinya.
-  5. Tombol **Absen Pulang** muncul otomatis mulai **pukul 13.00** (jam pulang guru TK). Guru SD juga sudah bisa absen pulang, tetapi jika sebelum jam pulang unitnya (14.00) aplikasi meminta konfirmasi dan absennya tercatat **pulang lebih awal** untuk rekap admin.
-- **Aturan absen dihitung di server**: jam absen memakai jam server (tidak bisa diakali dengan mengubah jam HP), terlambat jika lewat jam masuk + toleransi (bawaan 15 menit), hari Minggu & hari libur tidak ada absen, aplikasi **Fake GPS** ditolak, dan foto absen bersifat pribadi (hanya bisa dilihat guru pemilik & admin).
-- **Lokasi Absen (admin)**: tambah lokasi sebanyak yang dibutuhkan (mis. 3 gedung Yayasan yang terpencar, maks. 20), masing-masing dengan nama, titik koordinat, dan radiusnya sendiri. Titik bisa diisi dengan *Gunakan lokasi saya sekarang* saat berada di gedung tersebut, atau dengan menempel koordinat dari Google Maps. Lokasi bisa dinonaktifkan sementara atau dihapus.
-- **Pengaturan Sistem (admin)**: **toleransi terlambat** dan **jam masuk/pulang setiap unit** (bawaan KB & TK 07.00–13.00, SD 07.00–14.00).
+- **Absen per mata pelajaran (guru).** Tidak ada lagi jam masuk/pulang per unit KB/TK/SD. Setiap mapel di jadwal mengajar hari itu = **satu kali absen** (2 mapel = 2 kali absen). Jam masuk mengikuti mapel pertama, dan guru **boleh pulang setelah mapel terakhir selesai**.
+  1. Menu **Absen** menampilkan ringkasan hari ini (jumlah mapel yang sudah diabsen, jam masuk, jam boleh pulang) dan **daftar mapel hari ini** lengkap dengan kelas, gedung, dan status berwarna.
+  2. Tombol **Absen** muncul di mapel yang sudah dibuka (bawaan **30 menit sebelum** jam mulai) → kamera langsung terbuka **di dalam aplikasi** (tidak bisa dari galeri), lokasi absen terdekat tampil di atas kamera, dan posisi GPS saat foto diambil ikut disimpan.
+  3. Setelah foto: perkiraan status (**Tepat waktu** / **Terlambat X menit** / **Lewat jam pelajaran**), lokasi terdekat + jarak ke semua lokasi absen, lalu **Kirim Absen**. Jika guru berada di gedung lain dari jadwalnya, muncul pemberitahuan (absen tetap bisa dikirim).
+  4. **Terlambat tetap bisa absen**, bahkan setelah jam pelajarannya selesai. Status dicatat **terlambat** (menit dihitung dari jam mulai) dan diberi tanda khusus di Monitoring Absensi.
+- **Monitoring Absensi (admin)**: pilih tanggal, lalu terlihat setiap guru dan setiap mapelnya dengan **warna**: hijau = hadir tepat waktu, kuning = terlambat, merah = lewat jam pelajaran / belum absen padahal mapel sudah selesai, biru = izin/sakit/cuti, merah tua = alpa. Ketuk sebuah mapel untuk melihat foto & lokasi absen, atau **mengubah tanda kehadiran** (mis. guru lupa absen → tandai *Hadir* + catatan). Tanda dari admin terlihat juga di aplikasi guru ("diisi admin").
+- **Gedung di jadwal mengajar**: admin memilih gedung/lokasi di setiap jadwal, sehingga guru tahu harus mengajar di gedung mana (tampil di Jadwal Mengajar & Absen). Guru tetap boleh absen di gedung mana pun yang terdaftar.
+- **Lokasi Absen (admin)**: tambah lokasi sebanyak yang dibutuhkan (mis. 3 gedung Yayasan yang terpencar, maks. 20), masing-masing dengan nama, titik koordinat, dan radiusnya sendiri. Titik bisa diisi dengan *Gunakan lokasi saya sekarang* saat berada di gedung tersebut, atau dengan menempel koordinat dari Google Maps. Lokasi bisa diganti namanya, dinonaktifkan sementara, atau dihapus.
+- **Pengaturan Sistem (admin)**: **absen dibuka sebelum mapel** (menit) dan **toleransi terlambat** (menit).
+- **Aturan dihitung di server**: jam absen memakai jam server (tidak bisa diakali dengan mengubah jam HP), hari Minggu & hari libur tidak ada absen, aplikasi **Fake GPS** ditolak, dan foto absen bersifat pribadi (hanya guru pemilik & admin).
 - Kotak "Akun demo (mode debug)" di halaman login dihapus.
 
 ### Yang baru di Sesi 3
@@ -244,8 +245,10 @@ Bisa juga membuat akun guru sendiri lewat tombol **Daftar di sini** di halaman l
 Mencoba absen:
 
 1. Login sebagai **Admin** → **Lokasi Absen** → **Tambah Lokasi** → isi nama (mis. *Gedung SD*) → **Gunakan lokasi saya sekarang** (atau tempel koordinat dari Google Maps) → **Simpan Lokasi**. Ulangi untuk gedung lainnya. (Boleh dilewati; selama belum ada lokasi, jarak tidak dicek.)
-2. Logout, login sebagai guru → menu **Absen** → **Buka Kamera** → tekan tombol bulat untuk memotret → **Kirim Absen**.
-3. Saat pertama kali, aplikasi/browser meminta izin **kamera** dan **lokasi**: pilih **Izinkan/Allow**. Di Chrome laptop, yang dipakai adalah webcam laptop.
+2. Masih sebagai admin: **Kelola Jadwal Mengajar** → pilih guru → ketuk jadwal → pilih **Gedung / lokasi mengajar**.
+3. Logout, login sebagai guru → menu **Absen** → tekan **Absen** di mapel yang sedang/akan berlangsung → tekan tombol bulat untuk memotret → **Kirim Absen**. Absen hanya muncul pada hari yang ada jadwalnya (akun demo punya jadwal Senin–Jumat).
+4. Login sebagai admin → **Monitoring Absensi** untuk melihat warna kehadiran setiap guru, dan ketuk mapel untuk mengubah tanda kehadiran.
+5. Saat pertama kali, aplikasi/browser meminta izin **kamera** dan **lokasi**: pilih **Izinkan/Allow**. Di Chrome laptop, yang dipakai adalah webcam laptop.
 
 Mencoba sistem jadwal: login sebagai **Admin** → **Kelola Jadwal Mengajar** → pilih guru → ubah/tambah jadwal. Lalu logout, login sebagai guru tersebut → menu **Jadwal Mengajar**: perubahan langsung terlihat, dan berlaku juga di minggu-minggu berikutnya (tekan tombol **›**).
 
@@ -265,9 +268,18 @@ flutter pub get
 
 > Jika sesi berikutnya mengubah database, akan ada file SQL tambahan + petunjuknya. Jangan import ulang `db_kepegawaian_guru.sql` kalau database sudah berisi data asli, karena file itu menghapus tabel lama.
 
-### Pembaruan database Sesi 4b — banyak lokasi absen (wajib, cukup sekali)
+### Pembaruan database Sesi 4c — absen per mapel (wajib, cukup sekali)
 
-Pembaruan ini menambah tabel `lokasi_absen` (banyak titik lokasi) dan kolom lokasi di tabel `absensi`. Pilih **salah satu**:
+Pembaruan ini mengganti tabel `absensi` menjadi absen **per mata pelajaran**, menambah kolom gedung (`id_lokasi`) di jadwal mengajar dan pengaturan "absen dibuka sebelum mapel", serta menghapus tabel `jam_kerja_unit`. Pilih **salah satu**:
+
+- **Cara mudah (data lama boleh hilang)** — import ulang `database/db_kepegawaian_guru.sql` lewat phpMyAdmin seperti langkah 3.
+- **Cara aman (data lama dipertahankan)** — di phpMyAdmin klik tab **Import**, pilih file `database/migrasi/2026-11-23_sesi4c.sql`, lalu klik **Import**. Absen harian lama (masuk/pulang) tidak dipakai lagi dan disimpan sebagai tabel `absensi_lama` (boleh dihapus setelah dicek). (Jika migrasi Sesi 4b belum pernah dijalankan, jalankan `2026-11-16_sesi4b.sql` dulu.)
+
+Setelah itu **stop** aplikasi dan jalankan ulang (`flutter run`).
+
+### Pembaruan database Sesi 4b — banyak lokasi absen
+
+Hanya untuk yang belum memperbarui database di Sesi 4b. Pembaruan ini menambah tabel `lokasi_absen` (banyak titik lokasi) dan kolom lokasi di tabel `absensi`. Pilih **salah satu**:
 
 - **Cara mudah (data lama boleh hilang)** — import ulang `database/db_kepegawaian_guru.sql` lewat phpMyAdmin seperti langkah 3.
 - **Cara aman (data lama dipertahankan)** — di phpMyAdmin klik tab **Import**, pilih file `database/migrasi/2026-11-16_sesi4b.sql`, lalu klik **Import**. Jika sebelumnya admin sudah mengisi satu titik lokasi, titik itu otomatis menjadi lokasi bernama **Lokasi Utama** (namanya bisa diubah di menu Lokasi Absen). (Jika migrasi Sesi 4 belum pernah dijalankan, jalankan `2026-11-09_sesi4.sql` dulu.)
@@ -276,10 +288,10 @@ Setelah itu jalankan `flutter pub get`, lalu **stop** aplikasi dan jalankan ulan
 
 ### Pembaruan database Sesi 4
 
-Hanya untuk yang belum memperbarui database di Sesi 4. Sesi 4 menambah tabel `jam_kerja_unit` (jam masuk/pulang per unit) dan kolom baru di tabel `absensi`. Pilih **salah satu**:
+Hanya untuk yang belum memperbarui database di Sesi 4. Sesi 4 menambah kolom baru di tabel `absensi` (lalu diubah lagi menjadi absen per mapel di Sesi 4c). Pilih **salah satu**:
 
 - **Cara mudah (data lama boleh hilang)** — import ulang `database/db_kepegawaian_guru.sql` lewat phpMyAdmin seperti langkah 3.
-- **Cara aman (data lama dipertahankan)** — import `database/migrasi/2026-11-09_sesi4.sql`, lalu `database/migrasi/2026-11-16_sesi4b.sql`. (Jika migrasi Sesi 3 belum pernah dijalankan, jalankan `2026-10-10_sesi3.sql` dulu.)
+- **Cara aman (data lama dipertahankan)** — import berurutan `database/migrasi/2026-11-09_sesi4.sql`, `2026-11-16_sesi4b.sql`, lalu `2026-11-23_sesi4c.sql`. (Jika migrasi Sesi 3 belum pernah dijalankan, jalankan `2026-10-10_sesi3.sql` dulu.)
 
 > Pengguna Docker: jalankan `docker compose up -d --build` (ada perubahan kecil di resep backend), lalu import file migrasi di phpMyAdmin Docker (<http://localhost:8081>), atau `docker compose down -v` lalu `docker compose up -d` untuk mulai dari database baru.
 
@@ -419,4 +431,7 @@ flutter test
 | Absen: "Di luar area lokasi absen" padahal sudah di gedung | Titik lokasi gedung tersebut di menu **Lokasi Absen** (admin) belum tepat, radiusnya terlalu kecil, atau lokasinya nonaktif. Atur ulang dengan **Gunakan lokasi saya sekarang** saat berada di gedung itu, atau perbesar radiusnya (mis. 150 m). |
 | Absen: "Foto absen gagal disimpan" | Folder `backend/uploads/absen` harus bisa ditulis oleh Apache. Di Laragon/Windows biasanya otomatis bisa; di Linux jalankan `chmod 777 backend/uploads/absen`. |
 | Jadwal Mengajar guru kosong | Admin belum mengatur jadwal guru tersebut (Kelola Jadwal Mengajar), atau database belum diperbarui ke Sesi 3. |
+| Absen: "Tidak ada jadwal mengajar hari ini" | Absen mengikuti jadwal mengajar. Admin perlu menambahkan jadwal guru untuk hari tersebut di **Kelola Jadwal Mengajar**. Hari Minggu dan hari libur memang tidak ada absen. |
+| Absen: tombol **Absen** belum muncul / "Absen dibuka pukul …" | Absen sebuah mapel baru dibuka beberapa menit sebelum jam mulainya (bawaan 30 menit, bisa diubah admin di **Pengaturan Sistem**). |
+| Absen: *Unknown column* / *Table 'absensi' doesn't exist* setelah `git pull` | Database belum diperbarui ke Sesi 4c. Jalankan pembaruan database Sesi 4c di atas. |
 | Folder proyek bukan `kepegawaian-guru` | Ubah `folderProyek` di `aplikasi/lib/config/api_config.dart`. |

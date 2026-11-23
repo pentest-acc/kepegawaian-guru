@@ -11,31 +11,22 @@ import '../../services/api_service.dart';
 import '../../services/perangkat_absen.dart';
 import '../../utils/format_tanggal.dart';
 import '../../utils/pesan.dart';
+import '../../widgets/chip_kehadiran.dart';
 import '../../widgets/loading_dots.dart';
 import '../../widgets/tombol_utama.dart';
 import 'kamera_absen_screen.dart';
 
-/// Tahapan halaman Absen pada hari ini.
-enum _Tahap {
-  libur,
-  tanpaAbsen, // tercatat izin / sakit / cuti
-  belumDibuka, // sebelum jam absen masuk dibuka
-  lewatMasuk, // belum absen masuk padahal sudah lewat jam pulang
-  siapMasuk,
-  menungguPulang, // sudah absen masuk, tombol pulang belum muncul
-  siapPulang,
-  selesai,
-}
-
-/// Halaman Absen guru (sesuai desain): foto selfie + lokasi GPS.
+/// Halaman Absen guru: absen PER MATA PELAJARAN.
 ///
-/// Alur:
-/// 1. Tekan "Buka Kamera" -> kamera langsung (bukan galeri) -> foto selfie.
-///    Lokasi GPS dibaca tepat saat foto diambil.
-/// 2. Aplikasi menampilkan lokasi absen terdekat (Lokasi 1, 2, 3, ...);
-///    jika berada di dalam radius salah satunya, tekan "Kirim Absen".
-/// 3. Setelah absen masuk tombol hilang, lalu muncul lagi mulai jam pulang
-///    paling awal (13.00) untuk absen pulang.
+/// - Daftar mapel hari ini diambil dari jadwal mengajar guru. Setiap mapel
+///   diabsen sekali (2 mapel = 2 kali absen).
+/// - Jam masuk mengikuti mapel pertama; guru boleh pulang setelah mapel
+///   terakhir selesai.
+/// - Absen sebuah mapel dibuka sebelum jam mulai dan tetap bisa dilakukan
+///   walaupun sudah terlambat atau mapelnya sudah selesai (admin melihat
+///   tandanya).
+/// - Absen: "Absen" -> kamera langsung -> lokasi saat foto diambil dicek ke
+///   lokasi absen terdekat -> "Kirim Absen".
 ///
 /// Jam yang dipakai adalah jam SERVER, bukan jam HP.
 class AbsenScreen extends StatefulWidget {
@@ -71,25 +62,23 @@ class _AbsenScreenState extends State<AbsenScreen> {
   Duration _selisihServer = Duration.zero;
   Timer? _detak;
 
-  // Foto & lokasi saat foto diambil (belum dikirim)
+  // Absen yang sedang disiapkan (belum dikirim)
+  int? _indeksMapel;
   FotoAbsen? _foto;
   PosisiAbsen? _posisi;
   LokasiException? _masalahLokasi;
   bool _sedangMengirim = false;
 
-  // Foto yang sudah tersimpan di server
-  Uint8List? _fotoMasuk;
-  Uint8List? _fotoPulang;
-
   DateTime _jamPerangkat() => (widget.sekarang ?? DateTime.now)();
   DateTime get _jamServer => _jamPerangkat().add(_selisihServer);
+  int get _menitServer => _jamServer.hour * 60 + _jamServer.minute;
 
   @override
   void initState() {
     super.initState();
     _muat();
-    // Perbarui tampilan berkala, mis. agar tombol absen pulang muncul
-    // tepat pukul 13.00 tanpa perlu menutup halaman.
+    // Perbarui tampilan berkala, mis. status "Absen dibuka 07.00" berubah
+    // menjadi tombol Absen tanpa perlu menutup halaman.
     _detak = Timer.periodic(const Duration(seconds: 15), (_) {
       if (mounted) setState(() {});
     });
@@ -111,7 +100,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
         _sedangMemuat = false;
         _pesanGagal = null;
       });
-      _muatFotoTersimpan(info.absensi);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -121,60 +109,29 @@ class _AbsenScreenState extends State<AbsenScreen> {
     }
   }
 
-  Future<void> _muatFotoTersimpan(Absensi? absensi) async {
-    if (absensi == null) return;
-    Future<Uint8List?> ambil(String jenis) async {
-      try {
-        return await _service.ambilFoto(absensi.idAbsensi, jenis);
-      } on ApiException {
-        return null; // foto tidak wajib tampil
-      }
-    }
-
-    if (absensi.adaFotoMasuk && _fotoMasuk == null) {
-      final foto = await ambil('masuk');
-      if (mounted && foto != null) setState(() => _fotoMasuk = foto);
-    }
-    if (absensi.adaFotoPulang && _fotoPulang == null) {
-      final foto = await ambil('pulang');
-      if (mounted && foto != null) setState(() => _fotoPulang = foto);
-    }
-  }
-
   // ------------------------------------------------------------------
-  // Aturan tahapan
+  // Aturan
   // ------------------------------------------------------------------
 
-  static int _keMenit(String jam) {
-    final bagian = jam.split(':');
-    return int.parse(bagian[0]) * 60 + int.parse(bagian[1]);
+  KeadaanMapel _keadaan(InfoAbsenHariIni info, MapelAbsen mapel) =>
+      keadaanMapel(
+        mapel,
+        hari: HariRelatif.ini,
+        menitSekarang: _menitServer,
+        bukaAbsenMenit: info.bukaAbsenMenit,
+      );
+
+  bool _bisaAbsen(InfoAbsenHariIni info, MapelAbsen mapel) {
+    if (info.libur != null || mapel.idJadwal == null) return false;
+    final keadaan = _keadaan(info, mapel);
+    return keadaan == KeadaanMapel.belumAbsen ||
+        keadaan == KeadaanMapel.terlewat;
   }
 
-  int get _menitServer => _jamServer.hour * 60 + _jamServer.minute;
-
-  _Tahap _tahap(InfoAbsenHariIni info) {
-    final absensi = info.absensi;
-    if (info.libur != null) return _Tahap.libur;
-    if (absensi != null && absensi.tanpaAbsen) return _Tahap.tanpaAbsen;
-    if (absensi != null && absensi.sudahPulang) return _Tahap.selesai;
-    if (absensi != null && absensi.sudahMasuk) {
-      return _menitServer >= _keMenit(info.absenPulangMulai)
-          ? _Tahap.siapPulang
-          : _Tahap.menungguPulang;
-    }
-    if (_menitServer < _keMenit(info.absenMasukMulai)) {
-      return _Tahap.belumDibuka;
-    }
-    if (_menitServer >= _keMenit(info.jamKerja.jamPulang)) {
-      return _Tahap.lewatMasuk;
-    }
-    return _Tahap.siapMasuk;
-  }
-
-  /// Menit sebelum jam pulang unit guru (0 jika sudah lewat).
-  int _menitSebelumJamPulang(InfoAbsenHariIni info) {
-    final sisa = _keMenit(info.jamKerja.jamPulang) - _menitServer;
-    return sisa > 0 ? sisa : 0;
+  static String _jamDariMenit(int menit) {
+    final m = menit < 0 ? 0 : menit;
+    return '${(m ~/ 60).toString().padLeft(2, '0')}.'
+        '${(m % 60).toString().padLeft(2, '0')}';
   }
 
   /// Jarak posisi saat foto ke setiap lokasi absen, terdekat di atas.
@@ -199,84 +156,64 @@ class _AbsenScreenState extends State<AbsenScreen> {
   // Aksi
   // ------------------------------------------------------------------
 
-  Future<void> _bukaKamera({required bool pulang}) async {
+  Future<void> _mulaiAbsen(int indeks) async {
+    final info = _info!;
+    final mapel = info.mapel[indeks];
     final hasil = await _kamera.buka(
       context,
-      judul: pulang ? 'Foto Absen Pulang' : 'Foto Absen Masuk',
-      lokasiAbsen: _info?.lokasiAbsen ?? const [],
+      judul: 'Absen ${mapel.mataPelajaran}',
+      lokasiAbsen: info.lokasiAbsen,
       lokasi: _lokasi,
     );
     if (hasil == null || !mounted) return;
     setState(() {
+      _indeksMapel = indeks;
       _foto = hasil.foto;
       _posisi = hasil.posisi;
       _masalahLokasi = hasil.masalahLokasi;
     });
   }
 
-  Future<void> _kirimAbsen(InfoAbsenHariIni info, _Tahap tahap) async {
+  void _batal() {
+    setState(() {
+      _indeksMapel = null;
+      _foto = null;
+      _posisi = null;
+      _masalahLokasi = null;
+    });
+  }
+
+  Future<void> _kirimAbsen() async {
+    final info = _info!;
+    final indeks = _indeksMapel;
     final foto = _foto;
     final posisi = _posisi;
-    if (foto == null || posisi == null) return;
-    final pulang = tahap == _Tahap.siapPulang;
-
-    final menitAwal = _menitSebelumJamPulang(info);
-    if (pulang && menitAwal > 0) {
-      final lanjut = await _konfirmasiPulangAwal(info, menitAwal);
-      if (lanjut != true || !mounted) return;
-    }
+    if (indeks == null || foto == null || posisi == null) return;
 
     setState(() => _sedangMengirim = true);
     try {
-      final hasil = pulang
-          ? await _service.absenPulang(foto, posisi)
-          : await _service.absenMasuk(foto, posisi);
+      final hasil = await _service.kirimAbsen(
+        info.mapel[indeks].idJadwal!,
+        foto,
+        posisi,
+      );
       if (!mounted) return;
       setState(() {
-        _info = info.denganAbsensi(hasil.absensi);
-        if (pulang) {
-          _fotoPulang = foto.bytes;
-        } else {
-          _fotoMasuk = foto.bytes;
-        }
-        _foto = null;
-        _posisi = null;
+        _info = info.denganAbsensi(indeks, hasil.absensi);
         _sedangMengirim = false;
       });
+      _batal();
       tampilkanPesan(context, hasil.pesan);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _sedangMengirim = false);
       tampilkanPesan(context, e.pesan, gagal: true);
-      // Mis. sudah absen dari HP lain: muat ulang data terbaru
-      if (e.kodeStatus == 409) _muat();
+      // Mis. sudah absen dari HP lain / sudah ditandai admin
+      if (e.kodeStatus == 409) {
+        _batal();
+        _muat();
+      }
     }
-  }
-
-  Future<bool?> _konfirmasiPulangAwal(InfoAbsenHariIni info, int menit) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Pulang lebih awal?'),
-        content: Text(
-          'Jam pulang unit ${info.jamKerja.unit} pukul '
-          '${info.jamKerja.jamPulang.replaceAll(':', '.')}. Jika absen pulang '
-          'sekarang, kamu tercatat pulang lebih awal $menit menit dan akan '
-          'terlihat di rekap admin.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(minimumSize: const Size(120, 42)),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Tetap Absen'),
-          ),
-        ],
-      ),
-    );
   }
 
   // ------------------------------------------------------------------
@@ -285,17 +222,25 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Kembali',
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.of(context).pop(),
+    final menyiapkan = _foto != null && _indeksMapel != null;
+    return PopScope(
+      // Saat sedang menyiapkan absen, tombol kembali = batal absen
+      canPop: !menyiapkan,
+      onPopInvokedWithResult: (sudahKembali, _) {
+        if (!sudahKembali && !_sedangMengirim) _batal();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          leading: IconButton(
+            tooltip: 'Kembali',
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          title: const Text('Absen'),
         ),
-        title: const Text('Absen'),
+        body: _isi(),
       ),
-      body: _isi(),
     );
   }
 
@@ -331,164 +276,118 @@ class _AbsenScreenState extends State<AbsenScreen> {
       );
     }
 
-    final tahap = _tahap(info);
-    final siapKirim = tahap == _Tahap.siapMasuk || tahap == _Tahap.siapPulang;
-
+    if (_foto != null && _indeksMapel != null) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        children: _tampilanSiapKirim(info, info.mapel[_indeksMapel!]),
+      );
+    }
     return RefreshIndicator(
       onRefresh: _muat,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        children: siapKirim && _foto != null
-            ? _tampilanSiapKirim(info, tahap)
-            : _tampilanUtama(info, tahap),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: _tampilanDaftar(info),
       ),
     );
   }
 
-  /// Desain 1 & 3: kartu foto besar + info jam + tombol (jika ada).
-  List<Widget> _tampilanUtama(InfoAbsenHariIni info, _Tahap tahap) {
-    final absensi = info.absensi;
+  /// Daftar mapel hari ini, masing-masing dengan status & tombol Absen.
+  List<Widget> _tampilanDaftar(InfoAbsenHariIni info) {
     final tanggal = FormatTanggal.panjang(info.tanggal);
-
-    switch (tahap) {
-      case _Tahap.libur:
-        return [
-          _KartuPesan(
-            ikon: Icons.beach_access_rounded,
-            warnaIkon: const Color(0xFFFF8A80),
-            judul: 'Hari ini libur',
-            isi: '${info.libur}\n$tanggal',
-          ),
-        ];
-      case _Tahap.tanpaAbsen:
-        return [
-          _KartuPesan(
-            ikon: Icons.event_available_rounded,
-            warnaIkon: AppColors.mint,
-            judul: 'Hari ini kamu tercatat ${absensi!.status}',
-            isi: '$tanggal\nTidak perlu absen hari ini.',
-          ),
-        ];
-      case _Tahap.belumDibuka:
-      case _Tahap.lewatMasuk:
-      case _Tahap.siapMasuk:
-        return [
-          _KartuFoto(foto: null, keterangan: tanggal, tinggi: 200),
-          const SizedBox(height: 18),
-          if (tahap == _Tahap.siapMasuk)
-            TombolUtama(
-              teks: 'Buka Kamera',
-              ikon: Icons.photo_camera_rounded,
-              onPressed: () => _bukaKamera(pulang: false),
-            )
-          else
-            _Catatan(
-              ikon: Icons.schedule_rounded,
-              teks: tahap == _Tahap.belumDibuka
-                  ? 'Absen masuk dibuka mulai pukul '
-                        '${info.absenMasukMulai.replaceAll(':', '.')}.'
-                  : 'Waktu absen masuk sudah lewat (jam pulang '
-                        '${info.jamKerja.jamPulang.replaceAll(':', '.')}). '
-                        'Hubungi admin jika ada kendala.',
-            ),
-          const SizedBox(height: 12),
-          Text(
-            'Jam masuk unit ${info.jamKerja.unit}: '
-            '${info.jamKerja.jamMasuk.replaceAll(':', '.')} '
-            '(toleransi ${info.toleransiMenit} menit)',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: AppColors.teksAbu),
-          ),
-        ];
-      case _Tahap.menungguPulang:
-      case _Tahap.siapPulang:
-        return [
-          _KartuFoto(foto: _fotoMasuk, tinggi: 200),
-          const SizedBox(height: 18),
-          _BarisJam(
-            label: 'Jam Masuk',
-            jam: absensi!.jamMasuk,
-            lokasi: absensi.lokasiMasuk,
-            jarak: absensi.jarakMasuk,
-            catatan: absensi.terlambat
-                ? 'Terlambat ${absensi.menitTerlambat} menit'
-                : null,
-          ),
-          const SizedBox(height: 16),
-          const _BarisJam(label: 'Jam Keluar', jam: null),
-          const SizedBox(height: 28),
-          if (tahap == _Tahap.siapPulang)
-            TombolUtama(
-              teks: 'Absen Pulang',
-              ikon: Icons.photo_camera_rounded,
-              onPressed: () => _bukaKamera(pulang: true),
-            )
-          else
-            _Catatan(
-              ikon: Icons.info_outline_rounded,
-              teks:
-                  'Tombol absen pulang muncul pukul '
-                  '${info.absenPulangMulai.replaceAll(':', '.')}.',
-            ),
-        ];
-      case _Tahap.selesai:
-        return [
-          Row(
-            children: [
-              Expanded(
-                child: _KartuFoto(
-                  foto: _fotoMasuk,
-                  tinggi: 170,
-                  label: 'Masuk',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _KartuFoto(
-                  foto: _fotoPulang,
-                  tinggi: 170,
-                  label: 'Pulang',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _BarisJam(
-            label: 'Jam Masuk',
-            jam: absensi!.jamMasuk,
-            lokasi: absensi.lokasiMasuk,
-            jarak: absensi.jarakMasuk,
-            catatan: absensi.terlambat
-                ? 'Terlambat ${absensi.menitTerlambat} menit'
-                : null,
-          ),
-          const SizedBox(height: 16),
-          _BarisJam(
-            label: 'Jam Keluar',
-            jam: absensi.jamPulang,
-            lokasi: absensi.lokasiPulang,
-            jarak: absensi.jarakPulang,
-            catatan: absensi.menitPulangAwal > 0
-                ? 'Pulang lebih awal ${absensi.menitPulangAwal} menit'
-                : null,
-          ),
-          const SizedBox(height: 28),
-          const _Catatan(
-            ikon: Icons.verified_rounded,
-            teks: 'Absen hari ini sudah lengkap. Terima kasih!',
-            warna: AppColors.hijau,
-          ),
-        ];
+    if (info.libur != null) {
+      return [
+        _KartuPesan(
+          ikon: Icons.beach_access_rounded,
+          warnaIkon: const Color(0xFFFF8A80),
+          judul: 'Hari ini libur',
+          isi: '${info.libur}\n$tanggal',
+        ),
+      ];
     }
+    if (info.mapel.isEmpty) {
+      return [
+        _KartuPesan(
+          ikon: Icons.event_available_rounded,
+          warnaIkon: AppColors.mint,
+          judul: 'Tidak ada jadwal mengajar hari ini',
+          isi: '$tanggal\nAbsen hanya untuk hari yang ada jadwal mengajarnya.',
+        ),
+      ];
+    }
+
+    return [
+      _KartuRingkas(tanggal: tanggal, info: info, menitSekarang: _menitServer),
+      const SizedBox(height: 18),
+      Text(
+        'Mapel hari ini',
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: AppColors.teks,
+        ),
+      ),
+      const SizedBox(height: 8),
+      for (var i = 0; i < info.mapel.length; i++)
+        _KartuMapel(
+          mapel: info.mapel[i],
+          gaya: GayaKehadiran.dari(
+            _keadaan(info, info.mapel[i]),
+            absensi: info.mapel[i].absensi,
+            jamBuka: _jamDariMenit(
+              info.mapel[i].menitMulai - info.bukaAbsenMenit,
+            ),
+          ),
+          berlangsung:
+              _menitServer >= info.mapel[i].menitMulai &&
+              _menitServer < info.mapel[i].menitSelesai,
+          onAbsen: _bisaAbsen(info, info.mapel[i])
+              ? () => _mulaiAbsen(i)
+              : null,
+        ),
+      const SizedBox(height: 8),
+      _Catatan(
+        ikon: Icons.info_outline_rounded,
+        teks:
+            'Absen setiap mapel dibuka ${info.bukaAbsenMenit} menit sebelum '
+            'jam mulai. Lewat ${info.toleransiMenit} menit dari jam mulai '
+            'tercatat terlambat, tetapi tetap bisa absen.',
+      ),
+    ];
   }
 
   /// Desain 2: foto dari kamera + jam + kartu lokasi + tombol "Kirim Absen".
-  List<Widget> _tampilanSiapKirim(InfoAbsenHariIni info, _Tahap tahap) {
-    final pulang = tahap == _Tahap.siapPulang;
+  List<Widget> _tampilanSiapKirim(InfoAbsenHariIni info, MapelAbsen mapel) {
     final jamSekarang = DateFormat('HH:mm').format(_jamServer);
-    final menitAwal = pulang ? _menitSebelumJamPulang(info) : 0;
+    final menitTelat = _menitServer - mapel.menitMulai;
+    final terlambat = menitTelat > info.toleransiMenit;
+    final perkiraan = !terlambat
+        ? const GayaKehadiran(
+            'Tepat waktu',
+            GayaKehadiran.hijau,
+            Icons.check_circle_rounded,
+          )
+        : _menitServer >= mapel.menitSelesai
+        ? GayaKehadiran(
+            'Lewat jam pelajaran • +$menitTelat menit',
+            GayaKehadiran.merah,
+            Icons.running_with_errors_rounded,
+          )
+        : GayaKehadiran(
+            'Terlambat $menitTelat menit',
+            GayaKehadiran.kuning,
+            Icons.watch_later_rounded,
+          );
+
+    final terpilih = lokasiAbsenTerpilih(_jarakLokasi);
+    final bedaGedung =
+        mapel.lokasi != null &&
+        terpilih != null &&
+        terpilih.diDalam &&
+        terpilih.lokasi.nama != mapel.lokasi;
 
     return [
+      _InfoMapel(mapel: mapel),
+      const SizedBox(height: 16),
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -500,7 +399,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                 TextButton.icon(
                   onPressed: _sedangMengirim
                       ? null
-                      : () => _bukaKamera(pulang: pulang),
+                      : () => _mulaiAbsen(_indeksMapel!),
                   icon: const Icon(Icons.photo_camera_rounded, size: 18),
                   label: const Text('Foto ulang'),
                 ),
@@ -510,55 +409,66 @@ class _AbsenScreenState extends State<AbsenScreen> {
           const SizedBox(width: 16),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(top: 36),
+              padding: const EdgeInsets.only(top: 28),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _BarisJam(
-                    label: 'Jam Masuk',
-                    jam: pulang ? info.absensi!.jamMasuk : jamSekarang,
-                    tampilkanIkon: false,
+                  const Text(
+                    'Jam Absen',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.teks,
+                    ),
                   ),
-                  const SizedBox(height: 22),
-                  _BarisJam(
-                    label: 'Jam Keluar',
-                    jam: pulang ? jamSekarang : null,
-                    tampilkanIkon: false,
+                  Text(
+                    jamSekarang,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF6CBD3B),
+                    ),
                   ),
+                  const SizedBox(height: 14),
+                  ChipKehadiran(gaya: perkiraan),
                 ],
               ),
             ),
           ),
         ],
       ),
-      const SizedBox(height: 24),
+      const SizedBox(height: 20),
       _KartuLokasi(
         masalah: _masalahLokasi,
         posisi: _posisi,
         adaLokasiAbsen: info.lokasiAbsen.isNotEmpty,
         jarakLokasi: _jarakLokasi,
-        onFotoUlang: () => _bukaKamera(pulang: pulang),
+        onFotoUlang: () => _mulaiAbsen(_indeksMapel!),
         onBukaPengaturan: _masalahLokasi == null
             ? null
             : () => _lokasi.bukaPengaturan(_masalahLokasi!.pengaturan),
       ),
-      if (menitAwal > 0) ...[
-        const SizedBox(height: 16),
+      if (bedaGedung) ...[
+        const SizedBox(height: 14),
         _Catatan(
-          ikon: Icons.warning_amber_rounded,
-          warna: const Color(0xFFB7791F),
+          ikon: Icons.info_outline_rounded,
+          warna: GayaKehadiran.kuning,
           teks:
-              'Jam pulang unit ${info.jamKerja.unit} pukul '
-              '${info.jamKerja.jamPulang.replaceAll(':', '.')}. Absen pulang '
-              'sekarang akan tercatat pulang lebih awal $menitAwal menit.',
+              'Mapel ini dijadwalkan di ${mapel.lokasi}, sedangkan kamu '
+              'berada di ${terpilih.lokasi.nama}. Absen tetap bisa dikirim.',
         ),
       ],
-      const SizedBox(height: 28),
+      const SizedBox(height: 24),
       TombolUtama(
         teks: 'Kirim Absen',
         ikon: Icons.send_rounded,
         sedangMemuat: _sedangMengirim,
-        onPressed: _lokasiSiap ? () => _kirimAbsen(info, tahap) : null,
+        onPressed: _lokasiSiap ? _kirimAbsen : null,
+      ),
+      const SizedBox(height: 6),
+      TextButton(
+        onPressed: _sedangMengirim ? null : _batal,
+        child: const Text('Batal'),
       ),
     ];
   }
@@ -568,23 +478,310 @@ class _AbsenScreenState extends State<AbsenScreen> {
 // Komponen tampilan
 // ---------------------------------------------------------------------------
 
-/// Kartu foto dengan sudut membulat & bayangan (sesuai desain).
-class _KartuFoto extends StatelessWidget {
-  const _KartuFoto({
-    required this.foto,
-    required this.tinggi,
-    this.keterangan,
-    this.label,
+/// Kartu ringkasan hari ini: jumlah mapel, jam masuk, jam boleh pulang.
+class _KartuRingkas extends StatelessWidget {
+  const _KartuRingkas({
+    required this.tanggal,
+    required this.info,
+    required this.menitSekarang,
   });
 
-  final Uint8List? foto;
+  final String tanggal;
+  final InfoAbsenHariIni info;
+  final int menitSekarang;
+
+  @override
+  Widget build(BuildContext context) {
+    final sudahAbsen = info.mapel.where((m) => m.absensi != null).length;
+    final jamPulang = info.jamBolehPulang!;
+    final bolehPulang = menitSekarang >= menitDariJam(jamPulang);
+
+    Widget angka(String label, String nilai) => Expanded(
+      child: Column(
+        children: [
+          Text(
+            nilai,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 11.5,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF040029), Color(0xFF0B0068)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 12,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            tanggal,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              angka('Mapel', '$sudahAbsen/${info.mapel.length}'),
+              angka('Masuk', jamTitik(info.jamMasuk!)),
+              angka('Boleh pulang', jamTitik(jamPulang)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            bolehPulang
+                ? 'Semua mapel hari ini sudah selesai. Kamu sudah boleh pulang.'
+                : 'Absen di setiap mapel. Kamu boleh pulang setelah mapel '
+                      'terakhir selesai.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: bolehPulang ? AppColors.mint : Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Satu mapel hari ini: jam, kelas, gedung, status, dan tombol Absen.
+class _KartuMapel extends StatelessWidget {
+  const _KartuMapel({
+    required this.mapel,
+    required this.gaya,
+    required this.berlangsung,
+    this.onAbsen,
+  });
+
+  final MapelAbsen mapel;
+  final GayaKehadiran gaya;
+  final bool berlangsung;
+  final VoidCallback? onAbsen;
+
+  @override
+  Widget build(BuildContext context) {
+    final absensi = mapel.absensi;
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: berlangsung ? AppColors.biru : AppColors.garis,
+          width: berlangsung ? 2 : 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 62,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.navy,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    jamTitik(mapel.jamMulai),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    jamTitik(mapel.jamSelesai),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    mapel.mataPelajaran,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.teks,
+                    ),
+                  ),
+                  Text(
+                    '${mapel.unit} • Kelas ${mapel.kelas}'
+                    '${berlangsung ? ' • sedang berlangsung' : ''}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.teksAbu,
+                    ),
+                  ),
+                  if (mapel.lokasi != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.apartment_rounded,
+                            size: 14,
+                            color: AppColors.teksAbu,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              mapel.lokasi!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.teksAbu,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  ChipKehadiran(gaya: gaya),
+                  if (absensi?.lokasi != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Absen di ${absensi!.lokasi}'
+                        '${absensi.jarak == null ? '' : ' (${formatJarak(absensi.jarak!)})'}',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.teksAbu,
+                        ),
+                      ),
+                    ),
+                  if (absensi?.keterangan != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Catatan admin: ${absensi!.keterangan}',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.teksAbu,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (onAbsen != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: FilledButton.icon(
+                  onPressed: onAbsen,
+                  icon: const Icon(Icons.photo_camera_rounded, size: 18),
+                  label: const Text('Absen'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Keterangan mapel yang sedang diabsen (di atas foto).
+class _InfoMapel extends StatelessWidget {
+  const _InfoMapel({required this.mapel});
+
+  final MapelAbsen mapel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.biru.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.menu_book_rounded, color: AppColors.navy),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Absen ${mapel.mataPelajaran}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.teks,
+                  ),
+                ),
+                Text(
+                  '${mapel.jamTampil} • ${mapel.unit} Kelas ${mapel.kelas}'
+                  '${mapel.lokasi == null ? '' : ' • ${mapel.lokasi}'}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.teksAbu,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Kartu foto dengan sudut membulat & bayangan (sesuai desain).
+class _KartuFoto extends StatelessWidget {
+  const _KartuFoto({required this.foto, required this.tinggi});
+
+  final Uint8List foto;
   final double tinggi;
-
-  /// Teks pada kartu kosong (belum ada foto).
-  final String? keterangan;
-
-  /// Label kecil di pojok kiri bawah, mis. "Masuk".
-  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -601,174 +798,13 @@ class _KartuFoto extends StatelessWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (foto != null)
-            Image.memory(
-              foto!,
-              fit: BoxFit.cover,
-              alignment: const Alignment(0, -0.3),
-              gaplessPlayback: true,
-            )
-          else
-            DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF040029), Color(0xFF0B0068)],
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    keterangan == null
-                        ? Icons.person_rounded
-                        : Icons.photo_camera_front_rounded,
-                    size: 54,
-                    color: Colors.white.withValues(alpha: 0.85),
-                  ),
-                  if (keterangan != null) ...[
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Foto selfie langsung dari kamera',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      keterangan!,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          if (label != null)
-            Positioned(
-              left: 8,
-              bottom: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  label!,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-        ],
+      child: Image.memory(
+        foto,
+        fit: BoxFit.cover,
+        alignment: const Alignment(0, -0.3),
+        gaplessPlayback: true,
+        width: double.infinity,
       ),
-    );
-  }
-}
-
-/// "Jam Masuk  06:33" + ikon lokasi & terverifikasi (desain 3).
-class _BarisJam extends StatelessWidget {
-  const _BarisJam({
-    required this.label,
-    required this.jam,
-    this.lokasi,
-    this.jarak,
-    this.catatan,
-    this.tampilkanIkon = true,
-  });
-
-  final String label;
-
-  /// "HH:MM", null = belum absen ("--:--" merah).
-  final String? jam;
-
-  /// Nama lokasi absen, mis. "Gedung SD".
-  final String? lokasi;
-  final int? jarak;
-  final String? catatan;
-  final bool tampilkanIkon;
-
-  static const _hijau = Color(0xFF6CBD3B);
-
-  @override
-  Widget build(BuildContext context) {
-    final sudah = jam != null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: AppColors.teks,
-          ),
-        ),
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 6,
-          children: [
-            Text(
-              jam ?? '--:--',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: sudah ? _hijau : AppColors.merah,
-              ),
-            ),
-            if (sudah && tampilkanIkon) ...[
-              Tooltip(
-                message: jarak == null
-                    ? 'Lokasi tercatat'
-                    : 'Lokasi tercatat (${formatJarak(jarak!)} dari '
-                          '${lokasi ?? 'lokasi absen'})',
-                child: const Icon(
-                  Icons.location_on_outlined,
-                  color: _hijau,
-                  size: 22,
-                ),
-              ),
-              const Tooltip(
-                message: 'Foto absen tersimpan',
-                child: Icon(Icons.how_to_reg_rounded, color: _hijau, size: 22),
-              ),
-              if (lokasi != null)
-                Text(
-                  lokasi!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.teksAbu,
-                  ),
-                ),
-            ],
-            if (catatan != null)
-              Text(
-                catatan!,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFFB7791F),
-                ),
-              ),
-          ],
-        ),
-      ],
     );
   }
 }

@@ -14,11 +14,10 @@ return [
     'maks_gagal_login' => 5,
     'lama_kunci_menit' => 15,
 
-    // Absen: jam paling pagi guru boleh absen masuk, dan ukuran maksimal
-    // foto absen (aplikasi sudah mengecilkan foto, biasanya < 300 KB).
-    // Jam masuk/pulang per unit, toleransi terlambat, dan lokasi sekolah
-    // diatur admin di aplikasi (menu Pengaturan Sistem).
-    'absen_masuk_mulai' => '05:00',
+    // Absen: ukuran maksimal foto absen (foto dari kamera biasanya < 300 KB).
+    // Toleransi terlambat, jam buka absen, dan lokasi absen diatur admin di
+    // aplikasi (menu Pengaturan Sistem & Lokasi Absen). Jam absen setiap
+    // guru mengikuti jadwal mengajarnya.
     'maks_foto_absen_kb' => 5120,
 
     // true  = pesan error asli ditampilkan (mudah dicari saat belajar/development)

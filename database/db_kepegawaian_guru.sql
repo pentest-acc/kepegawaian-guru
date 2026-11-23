@@ -35,7 +35,8 @@ DROP TABLE IF EXISTS absensi;
 DROP TABLE IF EXISTS cuti;
 DROP TABLE IF EXISTS hari_libur;
 DROP TABLE IF EXISTS pengaturan;
-DROP TABLE IF EXISTS jam_kerja_unit;
+DROP TABLE IF EXISTS jam_kerja_unit;   -- tabel lama (sebelum absen per mapel)
+DROP TABLE IF EXISTS absensi_lama;     -- tabel lama (sebelum absen per mapel)
 DROP TABLE IF EXISTS lokasi_absen;
 DROP TABLE IF EXISTS token_login;
 DROP TABLE IF EXISTS percobaan_login;
@@ -125,32 +126,7 @@ CREATE TABLE info_penting (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
--- 5. jadwal_mengajar : jadwal mengajar MINGGUAN setiap guru
---    Satu baris = satu jam pelajaran pada hari tertentu, dan otomatis
---    berlaku SETIAP MINGGU (tidak perlu diisi ulang tiap minggu).
---    Admin cukup mengubah baris ini jika ada perubahan jadwal/mapel.
---    Tanggal yang ada di tabel hari_libur otomatis dianggap libur.
--- ---------------------------------------------------------------------
-CREATE TABLE jadwal_mengajar (
-  id_jadwal         INT UNSIGNED     NOT NULL AUTO_INCREMENT,
-  id_pengguna       INT UNSIGNED     NOT NULL COMMENT 'Guru yang mengajar',
-  hari              ENUM('Senin','Selasa','Rabu','Kamis','Jumat','Sabtu') NOT NULL,
-  jam_mulai         TIME             NOT NULL,
-  jam_selesai       TIME             NOT NULL,
-  unit              ENUM('KB','TK','SD') NOT NULL,
-  kelas             VARCHAR(20)      NOT NULL,
-  mata_pelajaran    VARCHAR(100)     NOT NULL COMMENT 'Mata pelajaran / kegiatan belajar',
-  dibuat_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  diubah_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id_jadwal),
-  KEY idx_jadwal_guru_hari (id_pengguna, hari),
-  KEY idx_jadwal_kelas_hari (unit, kelas, hari),
-  CONSTRAINT fk_jadwal_pengguna FOREIGN KEY (id_pengguna)
-    REFERENCES pengguna (id_pengguna) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ---------------------------------------------------------------------
--- 5b. lokasi_absen : titik-titik lokasi absen (gedung/sekolah Yayasan).
+-- 4b. lokasi_absen : titik-titik lokasi absen (gedung/sekolah Yayasan).
 --     Guru boleh absen jika berada di dalam radius SALAH SATU lokasi
 --     yang aktif; aplikasi menampilkan lokasi yang paling dekat.
 --     Jika belum ada lokasi sama sekali, jarak tidak dicek.
@@ -169,45 +145,81 @@ CREATE TABLE lokasi_absen (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
--- 6. absensi : absen masuk & pulang guru (foto + lokasi GPS)
---    satu guru hanya punya satu baris absensi per tanggal.
---    Jam absen diambil dari jam SERVER (bukan jam HP) supaya tidak bisa
---    diakali dengan mengubah jam di HP.
+-- 5. jadwal_mengajar : jadwal mengajar MINGGUAN setiap guru
+--    Satu baris = satu jam pelajaran pada hari tertentu, dan otomatis
+--    berlaku SETIAP MINGGU (tidak perlu diisi ulang tiap minggu).
+--    Admin cukup mengubah baris ini jika ada perubahan jadwal/mapel.
+--    Tanggal yang ada di tabel hari_libur otomatis dianggap libur.
+--    id_lokasi = gedung tempat mengajar (agar guru tidak kebingungan).
+--    Setiap baris jadwal = satu kali absen guru pada hari itu.
+-- ---------------------------------------------------------------------
+CREATE TABLE jadwal_mengajar (
+  id_jadwal         INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  id_pengguna       INT UNSIGNED     NOT NULL COMMENT 'Guru yang mengajar',
+  hari              ENUM('Senin','Selasa','Rabu','Kamis','Jumat','Sabtu') NOT NULL,
+  jam_mulai         TIME             NOT NULL,
+  jam_selesai       TIME             NOT NULL,
+  unit              ENUM('KB','TK','SD') NOT NULL,
+  kelas             VARCHAR(20)      NOT NULL,
+  mata_pelajaran    VARCHAR(100)     NOT NULL COMMENT 'Mata pelajaran / kegiatan belajar',
+  id_lokasi         INT UNSIGNED     NULL COMMENT 'Gedung/lokasi tempat mengajar',
+  dibuat_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  diubah_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_jadwal),
+  KEY idx_jadwal_guru_hari (id_pengguna, hari),
+  KEY idx_jadwal_kelas_hari (unit, kelas, hari),
+  CONSTRAINT fk_jadwal_pengguna FOREIGN KEY (id_pengguna)
+    REFERENCES pengguna (id_pengguna) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_jadwal_lokasi FOREIGN KEY (id_lokasi)
+    REFERENCES lokasi_absen (id_lokasi) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- 6. absensi : absen guru PER MATA PELAJARAN (foto + lokasi GPS).
+--    Satu baris = satu jadwal mengajar pada satu tanggal. Jika hari itu
+--    guru punya 2 mapel, guru absen 2 kali.
+--    - Jam absen diambil dari jam SERVER (bukan jam HP).
+--    - Lewat dari jam mulai + toleransi = 'terlambat' (tetap bisa absen,
+--      bahkan setelah jam pelajaran selesai; admin melihat tandanya).
+--    - Data mapel (nama, kelas, jam) disalin dari jadwal saat itu, agar
+--      riwayat tetap benar walaupun jadwal diubah di kemudian hari.
+--    - Admin bisa menandai/mengubah kehadiran (dikoreksi_oleh terisi),
+--      mis. guru lupa absen, izin, sakit, atau alpa.
 -- ---------------------------------------------------------------------
 CREATE TABLE absensi (
   id_absensi        INT UNSIGNED     NOT NULL AUTO_INCREMENT,
   id_pengguna       INT UNSIGNED     NOT NULL,
+  id_jadwal         INT UNSIGNED     NULL COMMENT 'Jadwal mengajar yang diabsen (NULL jika jadwalnya sudah dihapus)',
   tanggal           DATE             NOT NULL,
-  jam_masuk         TIME             NULL,
-  jam_pulang        TIME             NULL,
-  foto_masuk        VARCHAR(255)     NULL,
-  foto_pulang       VARCHAR(255)     NULL,
-  lat_masuk         DECIMAL(10,7)    NULL,
-  lng_masuk         DECIMAL(10,7)    NULL,
-  lat_pulang        DECIMAL(10,7)    NULL,
-  lng_pulang        DECIMAL(10,7)    NULL,
+  mata_pelajaran    VARCHAR(100)     NOT NULL COMMENT 'Salinan dari jadwal',
+  unit              ENUM('KB','TK','SD') NOT NULL,
+  kelas             VARCHAR(20)      NOT NULL,
+  jam_mulai         TIME             NOT NULL,
+  jam_selesai       TIME             NOT NULL,
+  jam_absen         TIME             NULL COMMENT 'NULL jika ditandai admin tanpa absen guru',
+  foto              VARCHAR(255)     NULL,
+  lat               DECIMAL(10,7)    NULL,
+  lng               DECIMAL(10,7)    NULL,
+  id_lokasi         INT UNSIGNED     NULL COMMENT 'Lokasi absen terdekat saat absen',
+  jarak             INT UNSIGNED     NULL COMMENT 'Jarak ke lokasi absen terdekat (meter)',
   status            ENUM('hadir','terlambat','izin','sakit','cuti','alpa') NOT NULL DEFAULT 'hadir',
-  menit_terlambat   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  menit_pulang_awal SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Absen pulang sebelum jam pulang unitnya',
-  id_lokasi_masuk   INT UNSIGNED     NULL COMMENT 'Lokasi absen terdekat saat absen masuk',
-  jarak_masuk       INT UNSIGNED     NULL COMMENT 'Jarak ke lokasi absen terdekat saat absen masuk (meter)',
-  id_lokasi_pulang  INT UNSIGNED     NULL COMMENT 'Lokasi absen terdekat saat absen pulang',
-  jarak_pulang      INT UNSIGNED     NULL COMMENT 'Jarak ke lokasi absen terdekat saat absen pulang (meter)',
-  keterangan        VARCHAR(255)     NULL COMMENT 'Catatan, mis. koreksi admin',
-  dikoreksi_oleh    INT UNSIGNED     NULL COMMENT 'Admin yang mengoreksi absen',
+  menit_terlambat   SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Dihitung dari jam mulai mapel',
+  keterangan        VARCHAR(255)     NULL COMMENT 'Catatan, mis. alasan dari admin',
+  dikoreksi_oleh    INT UNSIGNED     NULL COMMENT 'Admin yang menandai/mengubah kehadiran',
   dibuat_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
   diubah_pada       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id_absensi),
-  UNIQUE KEY uk_absensi_guru_tanggal (id_pengguna, tanggal),
+  UNIQUE KEY uk_absensi_jadwal_tanggal (id_jadwal, tanggal),
+  KEY idx_absensi_guru_tanggal (id_pengguna, tanggal),
   KEY idx_absensi_tanggal (tanggal),
   CONSTRAINT fk_absensi_pengguna FOREIGN KEY (id_pengguna)
     REFERENCES pengguna (id_pengguna) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_absensi_korektor FOREIGN KEY (dikoreksi_oleh)
-    REFERENCES pengguna (id_pengguna) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_absensi_lokasi_masuk FOREIGN KEY (id_lokasi_masuk)
+  CONSTRAINT fk_absensi_jadwal FOREIGN KEY (id_jadwal)
+    REFERENCES jadwal_mengajar (id_jadwal) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_absensi_lokasi FOREIGN KEY (id_lokasi)
     REFERENCES lokasi_absen (id_lokasi) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_absensi_lokasi_pulang FOREIGN KEY (id_lokasi_pulang)
-    REFERENCES lokasi_absen (id_lokasi) ON DELETE SET NULL ON UPDATE CASCADE
+  CONSTRAINT fk_absensi_korektor FOREIGN KEY (dikoreksi_oleh)
+    REFERENCES pengguna (id_pengguna) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
@@ -254,26 +266,12 @@ CREATE TABLE pengaturan (
   id_pengaturan        TINYINT UNSIGNED NOT NULL,
   nama_yayasan         VARCHAR(100)   NOT NULL,
   alamat_yayasan       VARCHAR(255)   NULL,
-  toleransi_terlambat  SMALLINT UNSIGNED NOT NULL DEFAULT 15 COMMENT 'Menit',
+  toleransi_terlambat  SMALLINT UNSIGNED NOT NULL DEFAULT 15 COMMENT 'Menit setelah jam mulai mapel',
+  buka_absen_menit     SMALLINT UNSIGNED NOT NULL DEFAULT 30 COMMENT 'Absen mapel dibuka sekian menit sebelum jam mulai',
   kuota_cuti_tahunan   TINYINT UNSIGNED NOT NULL DEFAULT 12 COMMENT 'Hari per tahun',
   diubah_pada          DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id_pengaturan)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ---------------------------------------------------------------------
--- 9b. jam_kerja_unit : jam masuk & jam pulang guru untuk setiap unit
---     (mis. guru TK pulang 13.00, guru SD pulang 14.00).
---     Tombol absen pulang muncul mulai jam pulang PALING AWAL (13.00).
---     Guru yang absen pulang sebelum jam pulang unitnya tetap bisa,
---     tetapi dicatat "pulang lebih awal" untuk rekap admin.
--- ---------------------------------------------------------------------
-CREATE TABLE jam_kerja_unit (
-  unit                 ENUM('KB','TK','SD') NOT NULL,
-  jam_masuk            TIME           NOT NULL DEFAULT '07:00:00',
-  jam_pulang           TIME           NOT NULL DEFAULT '14:00:00',
-  PRIMARY KEY (unit)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 
 -- ---------------------------------------------------------------------
 -- 10. percobaan_login : catatan login GAGAL, untuk mengunci sementara
@@ -295,16 +293,9 @@ CREATE TABLE percobaan_login (
 
 -- Pengaturan default (lokasi absen ditambahkan admin di menu Lokasi Absen)
 INSERT INTO pengaturan (id_pengaturan, nama_yayasan, alamat_yayasan,
-                        toleransi_terlambat, kuota_cuti_tahunan)
+                        toleransi_terlambat, buka_absen_menit, kuota_cuti_tahunan)
 VALUES (1, 'Yayasan Tiara Harapan Jaya', 'PUP Sektor V Blok O2 No. 1-5, Kel. Bahagia, Kec. Babelan, Kab. Bekasi',
-        15, 12);
-
--- Jam kerja guru per unit (bisa diubah admin di menu Pengaturan Sistem)
-INSERT INTO jam_kerja_unit (unit, jam_masuk, jam_pulang)
-VALUES
-  ('KB', '07:00:00', '13:00:00'),
-  ('TK', '07:00:00', '13:00:00'),
-  ('SD', '07:00:00', '14:00:00');
+        15, 30, 12);
 
 -- Akun demo (GANTI kata sandi setelah aplikasi dipakai sungguhan!)
 --   Admin : ADM001 / admin@contoh.test       kata sandi: admin123

@@ -12,46 +12,95 @@ import '../helpers.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  group('Model absen', () {
+  group('Model absen per mapel', () {
     test('InfoAbsenHariIni membaca data server', () {
       final info = InfoAbsenHariIni.fromJson(
-        jsonHariIniContoh(absensi: jsonAbsensiContoh(pulang: '13:05')),
+        jsonHariIniContoh(
+          mapel: [
+            jsonMapelContoh(absensi: jsonAbsensiContoh()),
+            jsonMapelContoh(
+              idJadwal: 2,
+              mulai: '10:40',
+              selesai: '11:50',
+              lokasi: null,
+              idLokasi: null,
+            ),
+          ],
+        ),
       );
-      expect(info.hari, 'Selasa');
-      expect(info.waktuServer, DateTime(2026, 11, 10, 6, 33));
-      expect(info.jamKerja.unit, 'SD');
-      expect(info.jamKerja.jamPulang, '14:00');
+      expect(info.hari, 'Senin');
+      expect(info.waktuServer, DateTime(2026, 11, 23, 7, 20));
       expect(info.toleransiMenit, 15);
-      expect(info.absenPulangMulai, '13:00');
-      expect(info.lokasiAbsen.map((l) => l.namaLengkap), [
-        'Lokasi 1 • Gedung TK',
-        'Lokasi 2 • Gedung SD',
-        'Lokasi 3 • Gedung KB',
-      ]);
-      expect(info.lokasiAbsen[1].radius, 150);
-      expect(info.absensi!.lokasiMasuk, 'Gedung SD');
-      expect(info.absensi!.sudahMasuk, isTrue);
-      expect(info.absensi!.sudahPulang, isTrue);
-      expect(info.absensi!.adaFotoPulang, isTrue);
-    });
+      expect(info.bukaAbsenMenit, 30);
+      expect(info.lokasiAbsen, hasLength(3));
+      expect(info.mapel, hasLength(2));
+      expect(info.mapel.first.lokasi, 'Gedung SD');
+      expect(info.mapel.first.absensi!.jamAbsen, '07:25');
+      expect(info.mapel.first.jamTampil, '07.30 - 09.00');
+      expect(info.mapel.last.absensi, isNull);
+      // Jam masuk = mapel pertama, boleh pulang = mapel terakhir selesai
+      expect(info.jamMasuk, '07:30');
+      expect(info.jamBolehPulang, '11:50');
 
-    test('Tanpa lokasi absen & belum absen', () {
-      final info = InfoAbsenHariIni.fromJson(
-        jsonHariIniContoh(adaLokasi: false, libur: 'Hari Minggu'),
+      final baru = info.denganAbsensi(
+        1,
+        AbsensiMapel.fromJson(jsonAbsensiContoh(id: 8, idJadwal: 2)),
       );
-      expect(info.lokasiAbsen, isEmpty);
-      expect(info.absensi, isNull);
-      expect(info.libur, 'Hari Minggu');
+      expect(baru.mapel.last.absensi!.idAbsensi, 8);
+      expect(baru.mapel.first.absensi!.idAbsensi, 7);
     });
 
-    test('Status izin/sakit/cuti tidak perlu absen', () {
+    test('Keadaan mapel: belum dibuka, belum absen, terlewat', () {
+      final mapel = MapelAbsen.fromJson(jsonMapelContoh()); // 07.30-09.00
+      KeadaanMapel pada(int jam, int menit) => keadaanMapel(
+        mapel,
+        hari: HariRelatif.ini,
+        menitSekarang: jam * 60 + menit,
+        bukaAbsenMenit: 30,
+      );
+      expect(pada(6, 50), KeadaanMapel.belumDibuka);
+      expect(pada(7, 0), KeadaanMapel.belumAbsen); // dibuka 30 menit sebelum
+      expect(pada(8, 59), KeadaanMapel.belumAbsen);
+      expect(pada(9, 0), KeadaanMapel.terlewat);
       expect(
-        Absensi.fromJson(
-          jsonAbsensiContoh(masuk: null, status: 'sakit'),
-        ).tanpaAbsen,
-        isTrue,
+        keadaanMapel(mapel, hari: HariRelatif.lalu),
+        KeadaanMapel.terlewat,
       );
-      expect(Absensi.fromJson(jsonAbsensiContoh()).tanpaAbsen, isFalse);
+      expect(
+        keadaanMapel(mapel, hari: HariRelatif.depan),
+        KeadaanMapel.belumAbsen,
+      );
+    });
+
+    test('Keadaan mapel dari status absensi', () {
+      KeadaanMapel dari(Map<String, dynamic> absensi) => keadaanMapel(
+        MapelAbsen.fromJson(jsonMapelContoh(absensi: absensi)),
+        hari: HariRelatif.ini,
+        menitSekarang: 600,
+      );
+      expect(dari(jsonAbsensiContoh()), KeadaanMapel.hadir);
+      expect(
+        dari(jsonAbsensiContoh(status: 'terlambat', menitTerlambat: 20)),
+        KeadaanMapel.terlambat,
+      );
+      expect(
+        dari(
+          jsonAbsensiContoh(
+            status: 'terlambat',
+            menitTerlambat: 110,
+            lewatJam: true,
+          ),
+        ),
+        KeadaanMapel.lewatJam,
+      );
+      expect(
+        dari(jsonAbsensiContoh(status: 'sakit', jamAbsen: null)),
+        KeadaanMapel.sakit,
+      );
+      expect(
+        dari(jsonAbsensiContoh(status: 'alpa', jamAbsen: null)),
+        KeadaanMapel.alpa,
+      );
     });
 
     test('Jarak GPS (Haversine) & format jarak', () {
@@ -121,54 +170,71 @@ void main() {
     });
 
     test('PengaturanAbsen bolak-balik JSON', () {
-      final asli = {
-        'jumlah_lokasi': 3,
+      final p = PengaturanAbsen.fromJson({
         'toleransi_terlambat': 10,
+        'buka_absen_menit': 45,
+        'jumlah_lokasi': 3,
         'alamat_yayasan': 'Bekasi',
-        'jam_kerja': [
-          {'unit': 'TK', 'jam_masuk': '07:00', 'jam_pulang': '13:00'},
-        ],
-      };
-      final p = PengaturanAbsen.fromJson(asli);
+      });
       expect(p.jumlahLokasi, 3);
-      final json = p.toJson();
-      expect(json['toleransi_terlambat'], 10);
-      expect(json.containsKey('jumlah_lokasi'), isFalse);
-      expect(json['jam_kerja'], [
-        {'unit': 'TK', 'jam_masuk': '07:00', 'jam_pulang': '13:00'},
-      ]);
-      expect(json.containsKey('alamat_yayasan'), isFalse);
+      expect(p.toJson(), {'toleransi_terlambat': 10, 'buka_absen_menit': 45});
+    });
+
+    test('RekapHarian (monitoring admin) membaca data server', () {
+      final rekap = RekapHarian.fromJson({
+        'tanggal': '2026-11-23',
+        'hari': 'Senin',
+        'waktu_server': '2026-11-23 12:30:00',
+        'libur': null,
+        'toleransi_menit': 15,
+        'guru': [
+          {
+            'id_pengguna': 2,
+            'nomor_induk': '12345678910',
+            'nama_tampil': 'Guru Contoh, S.Pd.',
+            'unit': 'SD',
+            'mapel': [
+              jsonMapelContoh(absensi: jsonAbsensiContoh()),
+              jsonMapelContoh(idJadwal: 2, mulai: '09:30', selesai: '10:40'),
+            ],
+          },
+        ],
+      });
+      expect(rekap.guru.single.namaTampil, 'Guru Contoh, S.Pd.');
+      expect(rekap.guru.single.mapel, hasLength(2));
+      expect(rekap.guru.single.mapel.last.absensi, isNull);
     });
   });
 
   group('AbsenService', () {
-    test('Absen masuk mengirim foto + lokasi (multipart)', () async {
+    test('Kirim absen sebuah mapel: id jadwal + foto + lokasi', () async {
       late http.Request dikirim;
       final service = buatAbsenPalsu((req) async {
         dikirim = req;
-        return responJson(201, true, 'Absen masuk berhasil pukul 06.33.', {
+        return responJson(201, true, 'Absen Bahasa Indonesia berhasil.', {
           'absensi': jsonAbsensiContoh(),
         });
       });
 
-      final hasil = await service.absenMasuk(
-        FotoAbsen(bytes: fotoPngKecil, namaFile: 'selfie.png'),
-        const PosisiAbsen(lat: -6.17035, lng: 107.02525, akurasi: 12.4),
+      final hasil = await service.kirimAbsen(
+        2,
+        FotoAbsen(bytes: fotoPngKecil, namaFile: 'absen.jpg'),
+        const PosisiAbsen(lat: -6.17527, lng: 107.03, akurasi: 12.4),
       );
 
-      expect(dikirim.url.path, '/api/absen/masuk.php');
+      expect(dikirim.url.path, '/api/absen/kirim.php');
       expect(
         dikirim.headers['content-type'],
         startsWith('multipart/form-data'),
       );
       final isi = latin1.decode(dikirim.bodyBytes);
-      expect(isi, contains('name="lat"\r\n\r\n-6.1703500'));
-      expect(isi, contains('name="lng"\r\n\r\n107.0252500'));
-      expect(isi, contains('name="akurasi"\r\n\r\n12'));
-      expect(isi, contains('name="foto"; filename="selfie.png"'));
+      expect(isi, contains('name="id_jadwal"\r\n\r\n2'));
+      expect(isi, contains('name="lat"\r\n\r\n-6.1752700'));
+      expect(isi, contains('name="lng"\r\n\r\n107.0300000'));
+      expect(isi, contains('name="foto"; filename="absen.jpg"'));
       expect(isi, isNot(contains('lokasi_palsu')));
-      expect(hasil.pesan, 'Absen masuk berhasil pukul 06.33.');
-      expect(hasil.absensi.jamMasuk, '06:33');
+      expect(hasil.pesan, 'Absen Bahasa Indonesia berhasil.');
+      expect(hasil.absensi.jamAbsen, '07:25');
     });
 
     test('Fake GPS ikut dilaporkan ke server', () async {
@@ -179,19 +245,19 @@ void main() {
       });
 
       await expectLater(
-        service.absenPulang(
-          FotoAbsen(bytes: fotoPngKecil, namaFile: 'selfie.png'),
+        service.kirimAbsen(
+          1,
+          FotoAbsen(bytes: fotoPngKecil, namaFile: 'absen.jpg'),
           const PosisiAbsen(lat: 1, lng: 2, palsu: true),
         ),
         throwsA(isA<ApiException>().having((e) => e.kodeStatus, 'kode', 422)),
       );
-      expect(dikirim.url.path, '/api/absen/pulang.php');
       expect(latin1.decode(dikirim.bodyBytes), contains('name="lokasi_palsu"'));
     });
 
     test('Foto absen diambil sebagai bytes, 404 jadi ApiException', () async {
       final service = buatAbsenPalsu((req) async {
-        if (req.url.queryParameters['jenis'] == 'masuk') {
+        if (req.url.queryParameters['id_absensi'] == '7') {
           return http.Response.bytes(
             fotoPngKecil,
             200,
@@ -201,9 +267,9 @@ void main() {
         return responJson(404, false, 'Foto absen tidak ditemukan.');
       });
 
-      expect(await service.ambilFoto(7, 'masuk'), fotoPngKecil);
+      expect(await service.ambilFoto(7), fotoPngKecil);
       await expectLater(
-        service.ambilFoto(7, 'pulang'),
+        service.ambilFoto(8),
         throwsA(
           isA<ApiException>().having(
             (e) => e.pesan,
@@ -212,6 +278,59 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('Admin: rekap harian & ubah kehadiran', () async {
+      final permintaan = <http.Request>[];
+      final service = buatAbsenPalsu((req) async {
+        permintaan.add(req);
+        if (req.url.path.endsWith('harian.php')) {
+          return responJson(200, true, 'ok', {
+            'tanggal': '2026-11-23',
+            'hari': 'Senin',
+            'waktu_server': '2026-11-23 12:30:00',
+            'libur': null,
+            'guru': [],
+          });
+        }
+        final body = jsonDecode(req.body) as Map<String, dynamic>;
+        return responJson(200, true, 'ok', {
+          'absensi': body['status'] == 'belum'
+              ? null
+              : jsonAbsensiContoh(
+                  jamAbsen: null,
+                  status: body['status'] as String,
+                  diubahAdmin: true,
+                ),
+        });
+      });
+
+      await service.rekapHarian(DateTime(2026, 11, 23));
+      expect(permintaan.last.url.queryParameters['tanggal'], '2026-11-23');
+
+      final hasil = await service.ubahKehadiran(
+        status: 'hadir',
+        idJadwal: 5,
+        tanggal: DateTime(2026, 11, 23),
+        keterangan: 'Lupa absen',
+      );
+      expect(jsonDecode(permintaan.last.body), {
+        'id_jadwal': 5,
+        'tanggal': '2026-11-23',
+        'status': 'hadir',
+        'keterangan': 'Lupa absen',
+      });
+      expect(hasil!.diubahAdmin, isTrue);
+
+      expect(
+        await service.ubahKehadiran(status: 'belum', idAbsensi: 7),
+        isNull,
+      );
+      expect(jsonDecode(permintaan.last.body), {
+        'id_absensi': 7,
+        'status': 'belum',
+        'keterangan': '',
+      });
     });
   });
 }

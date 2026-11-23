@@ -10,6 +10,11 @@
 const HARI_SEKOLAH = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const UNIT_SEKOLAH = ['KB', 'TK', 'SD'];
 
+/** Jadwal beserta nama gedung/lokasi tempat mengajar. */
+const SQL_JADWAL = 'SELECT j.*, l.nama AS nama_lokasi
+                      FROM jadwal_mengajar j
+                      LEFT JOIN lokasi_absen l ON l.id_lokasi = j.id_lokasi';
+
 /** Urutan jadwal: Senin -> Sabtu, lalu jam mulai paling pagi. */
 const SQL_URUT_JADWAL = "ORDER BY FIELD(j.hari, 'Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'), j.jam_mulai";
 
@@ -28,6 +33,8 @@ function data_jadwal_publik(array $b)
         'unit'           => $b['unit'],
         'kelas'          => $b['kelas'],
         'mata_pelajaran' => $b['mata_pelajaran'],
+        'id_lokasi'      => $b['id_lokasi'] === null ? null : (int) $b['id_lokasi'],
+        'lokasi'         => $b['nama_lokasi'] ?? null,
     ];
 }
 

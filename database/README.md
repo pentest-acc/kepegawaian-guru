@@ -20,8 +20,9 @@ erDiagram
     info_kegiatan ||--o{ info_penting : "ditandai"
     pengguna |o--o{ absensi : "mengoreksi (admin)"
     pengguna |o--o{ cuti : "memproses (admin)"
-    jam_kerja_unit ||--o{ pengguna : "jam kerja unit"
-    lokasi_absen |o--o{ absensi : "lokasi masuk/pulang"
+    jadwal_mengajar |o--o{ absensi : "diabsen per tanggal"
+    lokasi_absen |o--o{ jadwal_mengajar : "gedung mengajar"
+    lokasi_absen |o--o{ absensi : "lokasi absen"
 
     pengguna {
         INT id_pengguna PK
@@ -62,18 +63,20 @@ erDiagram
         ENUM unit
         VARCHAR kelas
         VARCHAR mata_pelajaran
+        INT id_lokasi FK
     }
     absensi {
         INT id_absensi PK
         INT id_pengguna FK
+        INT id_jadwal FK
         DATE tanggal
-        TIME jam_masuk
-        TIME jam_pulang
+        VARCHAR mata_pelajaran
+        TIME jam_mulai
+        TIME jam_selesai
+        TIME jam_absen
         ENUM status
         SMALLINT menit_terlambat
-        SMALLINT menit_pulang_awal
-        INT id_lokasi_masuk FK
-        INT id_lokasi_pulang FK
+        INT id_lokasi FK
         INT dikoreksi_oleh FK
     }
     lokasi_absen {
@@ -104,14 +107,10 @@ erDiagram
         VARCHAR alamat_ip
         DATETIME waktu
     }
-    jam_kerja_unit {
-        ENUM unit PK
-        TIME jam_masuk
-        TIME jam_pulang
-    }
     pengaturan {
         TINYINT id_pengaturan PK
         SMALLINT toleransi_terlambat
+        SMALLINT buka_absen_menit
         TINYINT kuota_cuti_tahunan
     }
 ```
@@ -198,28 +197,34 @@ Tabel ini menyimpan **pola mingguan** (hari + jam), bukan tanggal. Satu baris = 
 | unit | ENUM('KB','TK','SD') | Unit |
 | kelas | VARCHAR(20) | Contoh: 3A, TK A (disimpan huruf besar) |
 | mata_pelajaran | VARCHAR(100) | Mata pelajaran / kegiatan |
+| id_lokasi | INT, FK → lokasi_absen | Gedung/lokasi tempat mengajar (NULL = belum ditentukan). Hanya informasi untuk guru, tidak membatasi lokasi absen |
 
 Index: `idx_jadwal_guru_hari (id_pengguna, hari)` dan `idx_jadwal_kelas_hari (unit, kelas, hari)` untuk mempercepat pengecekan **jadwal bentrok**. Dua jadwal dianggap bentrok jika harinya sama dan jamnya beririsan (`jam_mulai_lama < jam_selesai_baru` **dan** `jam_selesai_lama > jam_mulai_baru`), baik untuk guru yang sama maupun untuk kelas yang sama.
 
-### 6. `absensi` — absen masuk & pulang (foto + GPS)
+### 6. `absensi` — absen per mata pelajaran (foto + GPS)
 
-Jam masuk/pulang diisi dari jam **server**. Foto disimpan di `backend/uploads/absen/TAHUN-BULAN/` (folder tertutup, hanya bisa diambil lewat API).
+Satu baris = kehadiran guru di **satu jadwal mengajar pada satu tanggal**. Guru dengan 2 mapel di hari itu absen 2 kali (2 baris). Tidak ada jam masuk/pulang per unit: jam masuk mengikuti mapel pertama, dan guru boleh pulang setelah mapel terakhir selesai. Jam absen diisi dari jam **server**. Foto disimpan di `backend/uploads/absen/TAHUN-BULAN/` (folder tertutup, hanya bisa diambil lewat API).
 
 | Kolom | Tipe | Keterangan |
 |---|---|---|
 | id_absensi | INT, PK | ID absensi |
 | id_pengguna | INT, FK → pengguna | Guru |
-| tanggal | DATE | Tanggal absen (UK bersama id_pengguna: 1 baris per hari) |
-| jam_masuk, jam_pulang | TIME | Jam absen |
-| foto_masuk, foto_pulang | VARCHAR(255) | Foto saat absen |
-| lat_masuk, lng_masuk, lat_pulang, lng_pulang | DECIMAL(10,7) | Lokasi GPS saat absen |
+| id_jadwal | INT, FK → jadwal_mengajar | Jadwal (mapel) yang diabsen; NULL jika jadwalnya sudah dihapus admin. UK bersama `tanggal`: 1 baris per mapel per tanggal |
+| tanggal | DATE | Tanggal absen |
+| mata_pelajaran, unit, kelas | VARCHAR/ENUM | Salinan data mapel saat absen, agar riwayat tidak berubah walaupun jadwal diubah/dihapus |
+| jam_mulai, jam_selesai | TIME | Salinan jam pelajaran saat absen |
+| jam_absen | TIME | Jam guru absen (NULL jika ditandai oleh admin tanpa absen) |
+| foto | VARCHAR(255) | Foto saat absen |
+| lat, lng | DECIMAL(10,7) | Lokasi GPS saat foto diambil |
+| id_lokasi | INT, FK → lokasi_absen | Lokasi absen terdekat saat absen (NULL jika belum ada lokasi absen, atau lokasinya sudah dihapus) |
+| jarak | INT | Jarak ke lokasi absen terdekat (meter) |
 | status | ENUM | hadir, terlambat, izin, sakit, cuti, alpa |
-| menit_terlambat | SMALLINT | Lama terlambat dari jam masuk unit (menit), diisi jika lewat toleransi |
-| menit_pulang_awal | SMALLINT | Absen pulang sebelum jam pulang unitnya (menit), untuk rekap admin |
-| id_lokasi_masuk, id_lokasi_pulang | INT, FK → lokasi_absen | Lokasi absen terdekat saat absen (NULL jika belum ada lokasi absen, atau lokasinya sudah dihapus) |
-| jarak_masuk, jarak_pulang | INT | Jarak ke lokasi absen terdekat saat absen (meter) |
-| keterangan | VARCHAR(255) | Catatan / alasan koreksi |
-| dikoreksi_oleh | INT, FK → pengguna | Admin yang mengoreksi |
+| menit_terlambat | SMALLINT | Lama terlambat dari jam mulai mapel (menit), diisi jika lewat toleransi. Absen setelah `jam_selesai` = **lewat jam pelajaran** (ditandai merah di Monitoring Absensi) |
+| keterangan | VARCHAR(255) | Catatan dari admin |
+| dikoreksi_oleh | INT, FK → pengguna | Admin yang menandai/mengubah kehadiran |
+| dibuat_pada, diubah_pada | DATETIME | Waktu data dibuat/diubah |
+
+Index: `uk_absensi_jadwal_tanggal (id_jadwal, tanggal)`, `idx_absensi_guru_tanggal (id_pengguna, tanggal)` untuk riwayat absen guru, dan `idx_absensi_tanggal (tanggal)` untuk Monitoring Absensi admin.
 
 ### 7. `cuti` — pengajuan cuti/izin/sakit
 
@@ -251,22 +256,13 @@ Jam masuk/pulang diisi dari jam **server**. Foto disimpan di `backend/uploads/ab
 |---|---|---|
 | id_pengaturan | TINYINT, PK | Selalu 1 |
 | nama_yayasan, alamat_yayasan | VARCHAR | Identitas Yayasan |
-| toleransi_terlambat | SMALLINT | Menit (default 15) |
+| toleransi_terlambat | SMALLINT | Menit setelah jam mulai mapel sebelum dianggap terlambat (default 15) |
+| buka_absen_menit | SMALLINT | Absen sebuah mapel dibuka sekian menit sebelum jam mulainya (default 30) |
 | kuota_cuti_tahunan | TINYINT | Jatah cuti per tahun (hari) |
 
-### 10. `jam_kerja_unit` — jam masuk & pulang guru per unit
+### 10. `lokasi_absen` — titik-titik lokasi absen (gedung)
 
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| unit | ENUM('KB','TK','SD'), PK | Unit |
-| jam_masuk | TIME | Bawaan 07:00 |
-| jam_pulang | TIME | Bawaan KB & TK 13:00, SD 14:00 |
-
-Tombol absen pulang di aplikasi muncul mulai jam pulang **paling awal** (13:00). Guru yang absen pulang sebelum jam pulang unitnya sendiri tercatat di `absensi.menit_pulang_awal`. Diatur admin di menu **Pengaturan Sistem**.
-
-### 11. `lokasi_absen` — titik-titik lokasi absen
-
-Admin bisa menambah banyak lokasi (mis. 3 gedung Yayasan yang terpencar) di menu **Lokasi Absen**. Guru boleh absen jika berada di dalam radius **salah satu** lokasi yang aktif; yang dicatat di `absensi` adalah lokasi terdekat. Jika tabel ini kosong, jarak tidak dicek.
+Admin bisa menambah banyak lokasi (mis. 3 gedung Yayasan yang terpencar) di menu **Lokasi Absen**. Guru boleh absen jika berada di dalam radius **salah satu** lokasi yang aktif; yang dicatat di `absensi` adalah lokasi terdekat. Jika tabel ini kosong, jarak tidak dicek. Lokasi ini juga dipakai sebagai pilihan **gedung** di jadwal mengajar.
 
 | Kolom | Tipe | Keterangan |
 |---|---|---|
@@ -285,6 +281,7 @@ Admin bisa menambah banyak lokasi (mis. 3 gedung Yayasan yang terpencar) di menu
 | `migrasi/2026-10-10_sesi3.sql` | Sesi 3: index `idx_jadwal_kelas_hari`, 2 akun guru demo, jadwal mengajar contoh (hanya untuk akun demo yang belum punya jadwal). Aman dijalankan ulang |
 | `migrasi/2026-11-09_sesi4.sql` | Sesi 4: tabel `jam_kerja_unit` (jam lama di `pengaturan` dipindahkan lalu kolomnya dihapus), kolom `absensi.menit_pulang_awal`, `jarak_masuk`, `jarak_pulang`. Aman dijalankan ulang |
 | `migrasi/2026-11-16_sesi4b.sql` | Sesi 4b: tabel `lokasi_absen` (banyak lokasi), kolom `absensi.id_lokasi_masuk` & `id_lokasi_pulang`; titik lokasi lama di `pengaturan` dipindahkan menjadi "Lokasi Utama" lalu kolomnya dihapus. Aman dijalankan ulang |
+| `migrasi/2026-11-23_sesi4c.sql` | Sesi 4c: absen **per mata pelajaran**. Tabel `absensi` lama (masuk/pulang harian) diganti nama menjadi `absensi_lama` dan dibuat tabel `absensi` baru; kolom `jadwal_mengajar.id_lokasi` (gedung) dan `pengaturan.buka_absen_menit`; tabel `jam_kerja_unit` dihapus. Jalankan setelah migrasi Sesi 4b. Aman dijalankan ulang |
 
 File migrasi hanya untuk database lama yang datanya ingin dipertahankan. Untuk instalasi baru cukup import `db_kepegawaian_guru.sql`.
 

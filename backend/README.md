@@ -8,7 +8,7 @@ API sederhana tanpa framework: **satu file PHP = satu endpoint**. Aplikasi Flutt
 backend/
 ├── .htaccess          # meneruskan header Authorization ke PHP (Apache Laragon/XAMPP)
 ├── config/
-│   ├── app.php        # zona waktu, masa berlaku token, batas gagal login, jam buka absen, tampilkan error
+│   ├── app.php        # zona waktu, masa berlaku token, batas gagal login, ukuran foto absen, tampilkan error
 │   └── database.php   # host, nama database, user, password MySQL (bisa diisi lewat variabel lingkungan, dipakai Docker)
 ├── core/              # fungsi bantu yang dipakai semua endpoint
 │   ├── bootstrap.php  # header JSON + CORS, penanganan error
@@ -16,8 +16,8 @@ backend/
 │   ├── respon.php     # kirim_json(), ambil_input(), url_backend(), dll.
 │   ├── auth.php       # buat token, cek login (wajib_login), dll.
 │   ├── info.php       # query & format data info kegiatan
-│   ├── jadwal.php     # daftar hari/unit, urutan & format data jadwal mengajar
-│   └── absen.php      # aturan absen: jam kerja unit, libur, jarak GPS, simpan foto
+│   ├── jadwal.php     # daftar hari/unit, urutan & format data jadwal mengajar (+ gedung)
+│   └── absen.php      # aturan absen per mapel: status terlambat, libur, jarak GPS, simpan foto
 ├── api/
 │   ├── index.php      # cek API & database
 │   ├── auth/
@@ -32,12 +32,14 @@ backend/
 │   ├── jadwal/
 │   │   └── saya.php       # jadwal mengajar guru yang sedang login
 │   ├── absen/
-│   │   ├── hari_ini.php   # status absen hari ini + aturan (jam kerja, daftar lokasi)
-│   │   ├── masuk.php      # absen masuk (foto + GPS)
-│   │   ├── pulang.php     # absen pulang (foto + GPS)
+│   │   ├── hari_ini.php   # mapel hari ini + status absen masing-masing + daftar lokasi
+│   │   ├── kirim.php      # absen satu mapel (foto + GPS)
 │   │   └── foto.php       # ambil foto absen (wajib login)
 │   └── admin/             # khusus role admin
 │       ├── guru.php       # daftar guru (untuk memilih guru)
+│       ├── absensi/
+│       │   ├── harian.php # monitoring absensi semua guru pada satu tanggal
+│       │   └── ubah.php   # admin menandai / mengubah kehadiran satu mapel
 │       ├── jadwal/
 │       │   ├── daftar.php
 │       │   ├── simpan.php # tambah / ubah + cek jadwal bentrok
@@ -47,7 +49,7 @@ backend/
 │       │   ├── simpan.php   # tambah / ubah
 │       │   └── hapus.php
 │       └── pengaturan/
-│           ├── absen.php        # toleransi terlambat, jam kerja unit
+│           ├── absen.php        # toleransi terlambat, absen dibuka sebelum mapel
 │           └── simpan_absen.php
 └── uploads/
     ├── .htaccess      # melarang file PHP dijalankan di folder unggahan
@@ -82,16 +84,17 @@ Alamat dasar (Laragon/XAMPP): `http://localhost/kepegawaian-guru/backend/api`
 | GET | `/jadwal/saya.php` | Ya | Jadwal mengajar mingguan guru yang login + hari libur pada rentang tanggal. Parameter opsional: `dari`, `sampai` (format `YYYY-MM-DD`, default minggu ini Senin–Sabtu, maks. 62 hari) |
 | GET | `/admin/guru.php` | Admin | Daftar guru + jumlah jadwalnya. Parameter opsional: `cari` (nama/NIY) |
 | GET | `/admin/jadwal/daftar.php?id_pengguna=2` | Admin | Seluruh jadwal mingguan seorang guru |
-| POST | `/admin/jadwal/simpan.php` | Admin | Tambah jadwal, atau ubah jika mengirim `id_jadwal` |
+| POST | `/admin/jadwal/simpan.php` | Admin | Tambah jadwal, atau ubah jika mengirim `id_jadwal` (termasuk gedung `id_lokasi`) |
 | POST | `/admin/jadwal/hapus.php` | Admin | Hapus jadwal: `{"id_jadwal": 5}` |
-| GET | `/absen/hari_ini.php` | Guru | Status absen hari ini + jam server, libur, jam kerja unit, jam tombol pulang muncul, daftar lokasi absen aktif (`lokasi_absen`) |
-| POST | `/absen/masuk.php` | Guru | Absen masuk, **multipart/form-data**: `foto`, `lat`, `lng`, `lokasi_palsu` (opsional) |
-| POST | `/absen/pulang.php` | Guru | Absen pulang, isian sama dengan absen masuk |
-| GET | `/absen/foto.php?id_absensi=5&jenis=masuk` | Ya | File foto absen (`masuk`/`pulang`). Guru hanya fotonya sendiri, admin semua |
+| GET | `/absen/hari_ini.php` | Guru | Jam server, libur, toleransi, jam buka absen, daftar lokasi absen aktif, dan **daftar mapel hari ini** beserta absensinya (`mapel`) |
+| POST | `/absen/kirim.php` | Guru | Absen satu mapel, **multipart/form-data**: `id_jadwal`, `foto`, `lat`, `lng`, `lokasi_palsu` (opsional) |
+| GET | `/absen/foto.php?id_absensi=5` | Ya | File foto absen. Guru hanya fotonya sendiri, admin semua |
+| GET | `/admin/absensi/harian.php?tanggal=2026-11-23` | Admin | Monitoring: semua guru yang mengajar pada tanggal itu + kehadiran setiap mapelnya (default hari ini) |
+| POST | `/admin/absensi/ubah.php` | Admin | Tandai / ubah kehadiran satu mapel (lihat contoh di bawah) |
 | GET | `/admin/lokasi/daftar.php` | Admin | Semua lokasi absen (aktif & nonaktif) beserta nomor urutnya (Lokasi 1, 2, 3, ...) |
 | POST | `/admin/lokasi/simpan.php` | Admin | Tambah lokasi, atau ubah jika mengirim `id_lokasi` (lihat contoh di bawah) |
 | POST | `/admin/lokasi/hapus.php` | Admin | Hapus lokasi: `{"id_lokasi": 2}` (riwayat absen tetap ada) |
-| GET | `/admin/pengaturan/absen.php` | Admin | Pengaturan absen (toleransi, jam kerja unit, jumlah lokasi aktif) |
+| GET | `/admin/pengaturan/absen.php` | Admin | Pengaturan absen (toleransi terlambat, absen dibuka sebelum mapel, jumlah lokasi aktif) |
 | POST | `/admin/pengaturan/simpan_absen.php` | Admin | Simpan pengaturan absen (lihat contoh di bawah) |
 
 Endpoint yang butuh login wajib mengirim header:
@@ -199,7 +202,9 @@ Contoh `jadwal/saya.php?dari=2026-10-05&sampai=2026-10-10` (dipotong):
         "jam_selesai": "09:00",
         "unit": "SD",
         "kelas": "3B",
-        "mata_pelajaran": "Bahasa Indonesia"
+        "mata_pelajaran": "Bahasa Indonesia",
+        "id_lokasi": 2,
+        "lokasi": "Gedung SD"
       }
     ],
     "libur": [ { "tanggal": "2026-10-08", "keterangan": "Libur Yayasan" } ]
@@ -218,12 +223,14 @@ Contoh `jadwal/saya.php?dari=2026-10-05&sampai=2026-10-10` (dipotong):
   "jam_selesai": "09:00",
   "unit": "SD",
   "kelas": "3B",
-  "mata_pelajaran": "Bahasa Indonesia"
+  "mata_pelajaran": "Bahasa Indonesia",
+  "id_lokasi": 2
 }
 ```
 
 - Tanpa `id_jadwal` = tambah baru (`201`), dengan `id_jadwal` = ubah (`200`). Jawaban berisi `data.jadwal` yang tersimpan.
 - `hari`: Senin–Sabtu; `unit`: KB/TK/SD; `kelas` ditulis huruf besar otomatis (mis. `3b` → `3B`).
+- `id_lokasi` (opsional) = gedung tempat mengajar, dari tabel `lokasi_absen`; kosong/`0` = belum ditentukan. Gedung ini hanya informasi untuk guru, guru tetap boleh absen di lokasi absen mana pun.
 - `422` isian tidak valid (jam selesai harus setelah jam mulai, dll.), `404` guru/jadwal tidak ditemukan.
 - `409` **jadwal bentrok**, yaitu jam yang tumpang tindih dengan:
   - jadwal lain milik guru yang sama di hari itu, atau
@@ -231,24 +238,61 @@ Contoh `jadwal/saya.php?dari=2026-10-05&sampai=2026-10-10` (dipotong):
 
   Contoh pesan: `"Kelas SD 3B pada jam itu sudah diajar oleh Ahmad Fauzi, S.Pd.I. (Pendidikan Agama Islam, 09:30-10:40)."`
 
-### Aturan absen
+### Aturan absen (per mata pelajaran)
 
 | Aturan | Penjelasan |
 |---|---|
+| Satu mapel = satu absen | Setiap jadwal mengajar hari itu diabsen sendiri-sendiri (guru dengan 2 mapel absen 2 kali). Satu baris `absensi` per jadwal per tanggal; absen kedua kali dijawab `409`. Tidak ada jam masuk/pulang per unit: jam masuk = mapel pertama, boleh pulang setelah mapel terakhir selesai. |
 | Jam absen | Selalu memakai jam **server** (bukan jam HP). |
-| Hari tanpa absen | Hari Minggu dan tanggal di tabel `hari_libur` (`422`). Guru berstatus izin/sakit/cuti hari itu juga tidak perlu absen (`409`). |
-| Absen masuk | Dibuka mulai `absen_masuk_mulai` (`config/app.php`, bawaan 05.00) sampai jam pulang unit guru. Lewat dari jam masuk unit + toleransi = status `terlambat` dan `menit_terlambat` dihitung dari jam masuk. |
-| Absen pulang | Dibuka mulai jam pulang **paling awal** di tabel `jam_kerja_unit` (bawaan 13.00, jam pulang TK). Jika sebelum jam pulang unit guru sendiri, dicatat di `menit_pulang_awal`. |
-| Lokasi | Admin bisa menambah **banyak lokasi absen** (tabel `lokasi_absen`). Guru harus berada di dalam radius **salah satu** lokasi yang aktif (jarak dihitung dengan rumus Haversine); yang dicatat di absensi adalah lokasi terdekat beserta jaraknya (`id_lokasi_masuk`/`jarak_masuk`, dst). Jika belum ada lokasi sama sekali, lokasi guru tetap disimpan tanpa pengecekan jarak. `lokasi_palsu=1` (Fake GPS terdeteksi di HP) ditolak. |
+| Hari tanpa absen | Hari Minggu dan tanggal di tabel `hari_libur` (`422`). Jadwal yang bukan hari ini juga ditolak (`422`). |
+| Kapan dibuka | Mulai `buka_absen_menit` (tabel `pengaturan`, bawaan 30) **sebelum** jam mulai mapel, sampai akhir hari. |
+| Terlambat | Lewat dari jam mulai + `toleransi_terlambat` (bawaan 15 menit) = status `terlambat`, `menit_terlambat` dihitung dari jam mulai. **Tetap boleh absen**, bahkan setelah jam pelajarannya selesai (`lewat_jam: true`, ditandai merah di Monitoring Absensi). |
+| Ditandai admin | Admin bisa menandai kehadiran lewat `admin/absensi/ubah.php` (mis. guru lupa absen, izin, sakit, alpa). Jika mapel sudah ditandai admin, guru tidak bisa absen lagi untuk mapel itu (`409`). |
+| Lokasi | Admin bisa menambah **banyak lokasi absen** (tabel `lokasi_absen`). Guru harus berada di dalam radius **salah satu** lokasi yang aktif (jarak dihitung dengan rumus Haversine); yang dicatat adalah lokasi terdekat beserta jaraknya (`id_lokasi`, `jarak`). Gedung di jadwal mengajar tidak membatasi lokasi absen. Jika belum ada lokasi sama sekali, lokasi guru tetap disimpan tanpa pengecekan jarak. `lokasi_palsu=1` (Fake GPS terdeteksi di HP) ditolak. |
 | Foto | Wajib, JPG/PNG/WEBP (dicek isinya, bukan hanya nama file), maks. `maks_foto_absen_kb` (bawaan 5 MB). Disimpan di `uploads/absen/TAHUN-BULAN/` dengan nama acak. |
-| Dobel absen | Satu baris absensi per guru per tanggal; absen masuk/pulang kedua kali dijawab `409`. |
+| Data mapel | Nama mapel, unit, kelas, dan jamnya ikut disalin ke baris absensi, sehingga riwayat absen tidak berubah walaupun jadwal diubah/dihapus admin. |
 
-### POST `/absen/masuk.php`
+### GET `/absen/hari_ini.php`
+
+Contoh jawaban (dipotong):
+
+```json
+{
+  "sukses": true,
+  "pesan": "Data absen hari ini.",
+  "data": {
+    "tanggal": "2026-11-23",
+    "hari": "Senin",
+    "waktu_server": "2026-11-23 07:20:00",
+    "libur": null,
+    "toleransi_menit": 15,
+    "buka_absen_menit": 30,
+    "lokasi_absen": [ { "id_lokasi": 1, "nomor": 1, "nama": "Gedung SD", "lat": -6.17, "lng": 107.03, "radius": 150, "aktif": true } ],
+    "mapel": [
+      {
+        "id_jadwal": 1,
+        "mata_pelajaran": "Bahasa Indonesia",
+        "unit": "SD",
+        "kelas": "3B",
+        "jam_mulai": "07:30",
+        "jam_selesai": "09:00",
+        "id_lokasi": 1,
+        "lokasi": "Gedung SD",
+        "absensi": null
+      }
+    ]
+  }
+}
+```
+
+`absensi` berisi data absen mapel tersebut (format sama dengan contoh di bawah) atau `null` jika belum absen.
+
+### POST `/absen/kirim.php`
 
 ```powershell
-curl.exe -X POST http://localhost/kepegawaian-guru/backend/api/absen/masuk.php `
+curl.exe -X POST http://localhost/kepegawaian-guru/backend/api/absen/kirim.php `
   -H "Authorization: Bearer <token>" `
-  -F "foto=@selfie.jpg" -F "lat=-6.1703500" -F "lng=107.0252500"
+  -F "id_jadwal=1" -F "foto=@selfie.jpg" -F "lat=-6.1703500" -F "lng=107.0252500"
 ```
 
 Jawaban `201`:
@@ -256,29 +300,58 @@ Jawaban `201`:
 ```json
 {
   "sukses": true,
-  "pesan": "Absen masuk berhasil pukul 07.21 di Gedung SD. Kamu terlambat 21 menit.",
+  "pesan": "Absen Bahasa Indonesia berhasil pukul 08.01 di Gedung SD. Kamu terlambat 31 menit.",
   "data": {
     "absensi": {
       "id_absensi": 1,
-      "tanggal": "2026-11-10",
-      "jam_masuk": "07:21",
-      "jam_pulang": null,
+      "id_jadwal": 1,
+      "tanggal": "2026-11-23",
+      "mata_pelajaran": "Bahasa Indonesia",
+      "unit": "SD",
+      "kelas": "3B",
+      "jam_mulai": "07:30",
+      "jam_selesai": "09:00",
+      "jam_absen": "08:01",
       "status": "terlambat",
-      "menit_terlambat": 21,
-      "menit_pulang_awal": 0,
-      "lokasi_masuk": "Gedung SD",
-      "jarak_masuk": 24,
-      "lokasi_pulang": null,
-      "jarak_pulang": null,
-      "ada_foto_masuk": true,
-      "ada_foto_pulang": false,
-      "keterangan": null
+      "menit_terlambat": 31,
+      "lewat_jam": false,
+      "lokasi": "Gedung SD",
+      "jarak": 24,
+      "ada_foto": true,
+      "keterangan": null,
+      "diubah_admin": false
     }
   }
 }
 ```
 
-Contoh jawaban gagal `422`: `"Kamu berada ± 400 m dari lokasi absen terdekat (Gedung KB). Absen hanya bisa dilakukan dalam radius 100 m dari lokasi tersebut."` (dengan `data.lokasi`, `data.jarak` & `data.radius`).
+Contoh jawaban gagal:
+
+- `422` `"Absen Bahasa Indonesia dibuka mulai pukul 07.00."`
+- `422` `"Kamu berada ± 400 m dari lokasi absen terdekat (Gedung KB). Absen hanya bisa dilakukan dalam radius 100 m dari lokasi tersebut."` (dengan `data.lokasi`, `data.jarak` & `data.radius`)
+- `409` `"Kamu sudah absen Bahasa Indonesia pukul 07.25."` / `"Kehadiran mapel ini sudah ditandai admin (izin)."`
+
+### GET `/admin/absensi/harian.php`
+
+Parameter `tanggal` (format `YYYY-MM-DD`, default hari ini). Jawaban berisi `tanggal`, `hari`, `waktu_server`, `libur`, `toleransi_menit`, dan `guru`: daftar guru aktif yang punya jadwal di hari itu, masing-masing dengan `mapel` (format sama seperti `mapel` di `absen/hari_ini.php`). Absensi yang jadwalnya sudah dihapus tetap ikut tampil.
+
+### POST `/admin/absensi/ubah.php`
+
+Menandai mapel yang belum diabsen (kirim `id_jadwal` + `tanggal`):
+
+```json
+{ "id_jadwal": 1, "tanggal": "2026-11-23", "status": "hadir", "keterangan": "Lupa absen, sudah dikonfirmasi" }
+```
+
+Atau mengubah absensi yang sudah ada (kirim `id_absensi`):
+
+```json
+{ "id_absensi": 12, "status": "izin", "keterangan": "Izin ke dokter" }
+```
+
+- `status`: `hadir`, `terlambat`, `izin`, `sakit`, `cuti`, `alpa`, atau `belum` (menghapus tanda dari admin). Jawaban berisi `data.absensi` (`null` jika dihapus); `diubah_admin` menjadi `true`.
+- Absen yang berisi foto dari guru tidak bisa dihapus, hanya diubah statusnya (`422`).
+- `422` jika hari pada `tanggal` tidak sama dengan hari jadwalnya.
 
 ### POST `/admin/lokasi/simpan.php`
 
@@ -302,15 +375,11 @@ Contoh jawaban gagal `422`: `"Kamu berada ± 400 m dari lokasi absen terdekat (G
 ```json
 {
   "toleransi_terlambat": 15,
-  "jam_kerja": [
-    {"unit": "KB", "jam_masuk": "07:00", "jam_pulang": "13:00"},
-    {"unit": "TK", "jam_masuk": "07:00", "jam_pulang": "13:00"},
-    {"unit": "SD", "jam_masuk": "07:00", "jam_pulang": "14:00"}
-  ]
+  "buka_absen_menit": 30
 }
 ```
 
-Toleransi 0–180 menit, ketiga unit wajib ada dan jam pulang harus setelah jam masuk. Lokasi absen diatur lewat `admin/lokasi/*.php`.
+Keduanya 0–180 menit. Jam masuk/pulang tidak diatur di sini karena mengikuti jadwal mengajar setiap guru. Lokasi absen diatur lewat `admin/lokasi/*.php`.
 
 ## Mencoba API tanpa aplikasi
 

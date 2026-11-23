@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../config/app_colors.dart';
 import '../../models/jadwal_mengajar.dart';
+import '../../services/absen_service.dart';
 import '../../services/api_service.dart';
 import '../../services/jadwal_service.dart';
 import '../../utils/hari.dart';
@@ -16,10 +17,12 @@ class AdminJadwalGuruScreen extends StatefulWidget {
     super.key,
     required this.guru,
     this.jadwalService,
+    this.absenService,
   });
 
   final GuruRingkas guru;
   final JadwalService? jadwalService;
+  final AbsenService? absenService;
 
   @override
   State<AdminJadwalGuruScreen> createState() => _AdminJadwalGuruScreenState();
@@ -64,6 +67,7 @@ class _AdminJadwalGuruScreenState extends State<AdminJadwalGuruScreen> {
           jadwal: jadwal,
           hariAwal: hari,
           jadwalService: _service,
+          absenService: widget.absenService,
         ),
       ),
     );
@@ -315,7 +319,8 @@ class _AdminJadwalGuruScreenState extends State<AdminJadwalGuruScreen> {
                               ),
                             ),
                             Text(
-                              '${jadwal.unit}  •  Kelas ${jadwal.kelas}',
+                              '${jadwal.unit}  •  Kelas ${jadwal.kelas}'
+                              '${jadwal.lokasi == null ? '' : '  •  ${jadwal.lokasi}'}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.teksAbu,

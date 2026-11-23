@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../config/app_colors.dart';
+import '../../models/absensi.dart';
 import '../../models/jadwal_mengajar.dart';
+import '../../services/absen_service.dart';
 import '../../services/api_service.dart';
 import '../../services/jadwal_service.dart';
 import '../../utils/hari.dart';
@@ -18,6 +20,7 @@ class FormJadwalScreen extends StatefulWidget {
     this.jadwal,
     this.hariAwal,
     this.jadwalService,
+    this.absenService,
   });
 
   final GuruRingkas guru;
@@ -29,12 +32,21 @@ class FormJadwalScreen extends StatefulWidget {
   final String? hariAwal;
   final JadwalService? jadwalService;
 
+  /// Untuk mengambil daftar gedung/lokasi absen.
+  final AbsenService? absenService;
+
   @override
   State<FormJadwalScreen> createState() => _FormJadwalScreenState();
 }
 
 class _FormJadwalScreenState extends State<FormJadwalScreen> {
   late final JadwalService _service = widget.jadwalService ?? JadwalService();
+  late final AbsenService _absen = widget.absenService ?? AbsenService();
+
+  /// Gedung tempat mengajar (null = belum ditentukan).
+  late int? _idLokasi = widget.jadwal?.idLokasi;
+  List<LokasiAbsen> _daftarLokasi = const [];
+  bool _memuatLokasi = true;
   final _formKey = GlobalKey<FormState>();
 
   late String _hari = widget.jadwal?.hari ?? widget.hariAwal ?? 'Senin';
@@ -63,6 +75,27 @@ class _FormJadwalScreenState extends State<FormJadwalScreen> {
   static String _keTeks(TimeOfDay jam) =>
       '${jam.hour.toString().padLeft(2, '0')}:'
       '${jam.minute.toString().padLeft(2, '0')}';
+
+  @override
+  void initState() {
+    super.initState();
+    _muatLokasi();
+  }
+
+  Future<void> _muatLokasi() async {
+    try {
+      final daftar = await _absen.daftarLokasi();
+      if (!mounted) return;
+      setState(() {
+        _daftarLokasi = daftar;
+        _memuatLokasi = false;
+        // Lokasi lama yang sudah dihapus dianggap belum ditentukan
+        if (!daftar.any((l) => l.idLokasi == _idLokasi)) _idLokasi = null;
+      });
+    } on ApiException {
+      if (mounted) setState(() => _memuatLokasi = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -123,6 +156,7 @@ class _FormJadwalScreenState extends State<FormJadwalScreen> {
           unit: _unit,
           kelas: _kelasController.text.trim(),
           mataPelajaran: _mapelController.text.trim(),
+          idLokasi: _idLokasi,
         ),
       );
       if (!mounted) return;
@@ -264,6 +298,38 @@ class _FormJadwalScreenState extends State<FormJadwalScreen> {
                 showSelectedIcon: false,
                 onSelectionChanged: (pilihan) =>
                     setState(() => _unit = pilihan.first),
+              ),
+              const SizedBox(height: 18),
+              const LabelIsian('Gedung / lokasi mengajar'),
+              DropdownButtonFormField<int?>(
+                key: const Key('pilih-gedung'),
+                initialValue: _idLokasi,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.apartment_rounded),
+                  helperMaxLines: 2,
+                  helperText: _memuatLokasi
+                      ? 'Memuat daftar gedung...'
+                      : _daftarLokasi.isEmpty
+                      ? 'Belum ada lokasi. Tambahkan di menu Lokasi Absen.'
+                      : 'Agar guru tahu harus mengajar di gedung mana.',
+                ),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Belum ditentukan'),
+                  ),
+                  for (final lokasi in _daftarLokasi)
+                    DropdownMenuItem<int?>(
+                      value: lokasi.idLokasi,
+                      child: Text(
+                        '${lokasi.namaLengkap}'
+                        '${lokasi.aktif ? '' : ' (nonaktif)'}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (nilai) => setState(() => _idLokasi = nilai),
               ),
               const SizedBox(height: 18),
               InputField(

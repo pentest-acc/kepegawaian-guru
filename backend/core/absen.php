@@ -1,22 +1,25 @@
 <?php
 /**
- * Fungsi bantu untuk fitur Absen (foto + lokasi GPS).
+ * Fungsi bantu untuk fitur Absen (foto + lokasi GPS), PER MATA PELAJARAN.
  *
  * Aturan absen:
+ *  - Setiap jadwal mengajar hari itu = satu kali absen. Guru dengan 2 mapel
+ *    absen 2 kali. Jam masuk mengikuti mapel pertama dan guru boleh pulang
+ *    setelah mapel terakhir selesai (tidak ada lagi jam kerja per unit).
  *  - Jam absen SELALU memakai jam server, bukan jam HP.
+ *  - Absen sebuah mapel dibuka mulai 'buka_absen_menit' sebelum jam mulai
+ *    dan tetap bisa dilakukan sampai akhir hari (walau mapel sudah selesai).
+ *  - Lewat dari jam mulai + toleransi = 'terlambat'; menit terlambat dihitung
+ *    dari jam mulai. Absen setelah jam selesai ditandai "lewat jam pelajaran".
  *  - Hari Minggu dan tanggal di tabel hari_libur tidak ada absen.
- *  - Absen masuk dibuka mulai config 'absen_masuk_mulai' sampai jam pulang
- *    unit guru. Lewat dari jam masuk + toleransi = terlambat.
- *  - Absen pulang dibuka mulai jam pulang PALING AWAL di tabel
- *    jam_kerja_unit (mis. 13.00 untuk TK). Guru yang absen pulang sebelum
- *    jam pulang unitnya sendiri dicatat "pulang lebih awal".
+ *  - Admin bisa menandai/mengubah kehadiran (lupa absen, izin, sakit, alpa).
  *  - Admin bisa menambah BANYAK lokasi absen (mis. 3 gedung Yayasan).
  *    Guru harus berada di dalam radius salah satu lokasi yang aktif; yang
  *    dicatat adalah lokasi terdekat. Jika belum ada lokasi, jarak tidak dicek.
  */
 
 const NAMA_HARI = [1 => 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-const STATUS_TANPA_ABSEN = ['izin', 'sakit', 'cuti'];
+const STATUS_KEHADIRAN = ['hadir', 'terlambat', 'izin', 'sakit', 'cuti', 'alpa'];
 
 /** Ubah "HH:MM" atau "HH:MM:SS" menjadi jumlah detik sejak 00:00. */
 function detik_dari_jam($jam)
@@ -51,36 +54,13 @@ function info_libur($tanggal)
     return $keterangan === false ? null : $keterangan;
 }
 
-/**
- * Jam masuk & pulang untuk unit guru. Jika unit kosong/tidak dikenal,
- * dipakai jam pulang paling akhir (aturan paling ketat).
- */
-function jam_kerja_unit($unit)
-{
-    $stmt = db()->prepare('SELECT unit, jam_masuk, jam_pulang FROM jam_kerja_unit WHERE unit = ?');
-    $stmt->execute([(string) $unit]);
-    $baris = $stmt->fetch();
-    if (!$baris) {
-        $baris = db()->query('SELECT unit, jam_masuk, jam_pulang FROM jam_kerja_unit ORDER BY jam_pulang DESC LIMIT 1')->fetch();
-    }
-    if (!$baris) {
-        $baris = ['unit' => $unit, 'jam_masuk' => '07:00:00', 'jam_pulang' => '14:00:00'];
-    }
-    return $baris;
-}
-
-/** Jam paling awal tombol absen pulang muncul (jam pulang paling awal). */
-function jam_buka_absen_pulang()
-{
-    $jam = db()->query('SELECT MIN(jam_pulang) FROM jam_kerja_unit')->fetchColumn();
-    return $jam ?: '13:00:00';
-}
-
-/** Pengaturan absen: toleransi terlambat. */
+/** Pengaturan absen: toleransi terlambat & jam buka absen (menit). */
 function pengaturan_absen()
 {
-    $baris = db()->query('SELECT toleransi_terlambat FROM pengaturan WHERE id_pengaturan = 1')->fetch();
-    return $baris ?: ['toleransi_terlambat' => 15];
+    $baris = db()->query(
+        'SELECT toleransi_terlambat, buka_absen_menit FROM pengaturan WHERE id_pengaturan = 1'
+    )->fetch();
+    return $baris ?: ['toleransi_terlambat' => 15, 'buka_absen_menit' => 30];
 }
 
 /**
@@ -116,17 +96,24 @@ function data_lokasi_publik(array $b)
     ];
 }
 
-/** Baris absensi guru pada tanggal tertentu (false jika belum ada). */
-function absensi_guru($idPengguna, $tanggal)
+/** Query dasar absensi beserta nama lokasi absennya. */
+const SQL_ABSENSI = 'SELECT a.*, l.nama AS nama_lokasi
+                       FROM absensi a
+                       LEFT JOIN lokasi_absen l ON l.id_lokasi = a.id_lokasi';
+
+/** Satu baris absensi berdasarkan id (false jika tidak ada). */
+function absensi_by_id($idAbsensi)
 {
-    $stmt = db()->prepare(
-        'SELECT a.*, lm.nama AS nama_lokasi_masuk, lp.nama AS nama_lokasi_pulang
-           FROM absensi a
-           LEFT JOIN lokasi_absen lm ON lm.id_lokasi = a.id_lokasi_masuk
-           LEFT JOIN lokasi_absen lp ON lp.id_lokasi = a.id_lokasi_pulang
-          WHERE a.id_pengguna = ? AND a.tanggal = ?'
-    );
-    $stmt->execute([(int) $idPengguna, $tanggal]);
+    $stmt = db()->prepare(SQL_ABSENSI . ' WHERE a.id_absensi = ?');
+    $stmt->execute([(int) $idAbsensi]);
+    return $stmt->fetch();
+}
+
+/** Absensi sebuah jadwal pada tanggal tertentu (false jika belum ada). */
+function absensi_jadwal($idJadwal, $tanggal)
+{
+    $stmt = db()->prepare(SQL_ABSENSI . ' WHERE a.id_jadwal = ? AND a.tanggal = ?');
+    $stmt->execute([(int) $idJadwal, $tanggal]);
     return $stmt->fetch();
 }
 
@@ -134,21 +121,113 @@ function absensi_guru($idPengguna, $tanggal)
 function data_absensi_publik(array $b)
 {
     return [
-        'id_absensi'        => (int) $b['id_absensi'],
-        'tanggal'           => $b['tanggal'],
-        'jam_masuk'         => jam_pendek($b['jam_masuk']),
-        'jam_pulang'        => jam_pendek($b['jam_pulang']),
-        'status'            => $b['status'],
-        'menit_terlambat'   => (int) $b['menit_terlambat'],
-        'menit_pulang_awal' => (int) $b['menit_pulang_awal'],
-        'lokasi_masuk'      => $b['nama_lokasi_masuk'] ?? null,
-        'jarak_masuk'       => $b['jarak_masuk'] === null ? null : (int) $b['jarak_masuk'],
-        'lokasi_pulang'     => $b['nama_lokasi_pulang'] ?? null,
-        'jarak_pulang'      => $b['jarak_pulang'] === null ? null : (int) $b['jarak_pulang'],
-        'ada_foto_masuk'    => $b['foto_masuk'] !== null,
-        'ada_foto_pulang'   => $b['foto_pulang'] !== null,
-        'keterangan'        => $b['keterangan'],
+        'id_absensi'      => (int) $b['id_absensi'],
+        'id_jadwal'       => $b['id_jadwal'] === null ? null : (int) $b['id_jadwal'],
+        'tanggal'         => $b['tanggal'],
+        'mata_pelajaran'  => $b['mata_pelajaran'],
+        'unit'            => $b['unit'],
+        'kelas'           => $b['kelas'],
+        'jam_mulai'       => jam_pendek($b['jam_mulai']),
+        'jam_selesai'     => jam_pendek($b['jam_selesai']),
+        'jam_absen'       => jam_pendek($b['jam_absen']),
+        'status'          => $b['status'],
+        'menit_terlambat' => (int) $b['menit_terlambat'],
+        // absen dilakukan setelah jam pelajaran selesai
+        'lewat_jam'       => $b['jam_absen'] !== null && $b['jam_absen'] > $b['jam_selesai'],
+        'lokasi'          => $b['nama_lokasi'] ?? null,
+        'jarak'           => $b['jarak'] === null ? null : (int) $b['jarak'],
+        'ada_foto'        => $b['foto'] !== null,
+        'keterangan'      => $b['keterangan'],
+        'diubah_admin'    => $b['dikoreksi_oleh'] !== null,
     ];
+}
+
+/**
+ * Satu mapel (jadwal) pada tanggal tertentu beserta absensinya, untuk
+ * halaman Absen guru & Monitoring Absensi admin.
+ *
+ * @param array      $jadwal  baris jadwal_mengajar + nama_lokasi
+ * @param array|null $absensi baris absensi (null jika belum absen)
+ */
+function data_mapel_publik(array $jadwal, $absensi)
+{
+    return [
+        'id_jadwal'      => (int) $jadwal['id_jadwal'],
+        'mata_pelajaran' => $jadwal['mata_pelajaran'],
+        'unit'           => $jadwal['unit'],
+        'kelas'          => $jadwal['kelas'],
+        'jam_mulai'      => jam_pendek($jadwal['jam_mulai']),
+        'jam_selesai'    => jam_pendek($jadwal['jam_selesai']),
+        'id_lokasi'      => $jadwal['id_lokasi'] === null ? null : (int) $jadwal['id_lokasi'],
+        'lokasi'         => $jadwal['nama_lokasi'] ?? null,
+        'absensi'        => $absensi ? data_absensi_publik($absensi) : null,
+    ];
+}
+
+/**
+ * Absensi yang jadwalnya sudah tidak ada / sudah dipindah hari, ditampilkan
+ * memakai salinan data mapel di baris absensi itu sendiri.
+ */
+function data_mapel_dari_absensi(array $absensi)
+{
+    return [
+        'id_jadwal'      => $absensi['id_jadwal'] === null ? null : (int) $absensi['id_jadwal'],
+        'mata_pelajaran' => $absensi['mata_pelajaran'],
+        'unit'           => $absensi['unit'],
+        'kelas'          => $absensi['kelas'],
+        'jam_mulai'      => jam_pendek($absensi['jam_mulai']),
+        'jam_selesai'    => jam_pendek($absensi['jam_selesai']),
+        'id_lokasi'      => null,
+        'lokasi'         => null,
+        'absensi'        => data_absensi_publik($absensi),
+    ];
+}
+
+/**
+ * Gabungkan jadwal hari itu dengan absensinya.
+ *
+ * @param array $jadwal  baris jadwal (+ nama_lokasi), urut jam mulai
+ * @param array $absensi baris absensi pada tanggal itu
+ * @return array daftar data_mapel_publik, urut jam mulai
+ */
+function gabung_jadwal_absensi(array $jadwal, array $absensi)
+{
+    // Kunci 'j<id_jadwal>'; absensi yang jadwalnya sudah dihapus memakai 'a<id_absensi>'
+    $perJadwal = [];
+    foreach ($absensi as $a) {
+        $kunci = $a['id_jadwal'] === null ? 'a' . $a['id_absensi'] : 'j' . $a['id_jadwal'];
+        $perJadwal[$kunci] = $a;
+    }
+
+    $hasil = [];
+    foreach ($jadwal as $j) {
+        $kunci   = 'j' . $j['id_jadwal'];
+        $hasil[] = data_mapel_publik($j, $perJadwal[$kunci] ?? null);
+        unset($perJadwal[$kunci]);
+    }
+    // Sisa absensi yang jadwalnya sudah dihapus/dipindah
+    foreach ($perJadwal as $a) {
+        $hasil[] = data_mapel_dari_absensi($a);
+    }
+
+    usort($hasil, function ($x, $y) {
+        return strcmp($x['jam_mulai'], $y['jam_mulai']);
+    });
+    return $hasil;
+}
+
+/**
+ * Status absen guru berdasarkan jam absen dan jam mulai mapel.
+ *
+ * @return array [status, menit_terlambat]
+ */
+function hitung_status_absen($detikAbsen, $jamMulai, $toleransiMenit)
+{
+    $selisih = $detikAbsen - detik_dari_jam($jamMulai);
+    if ($selisih > (int) $toleransiMenit * 60) {
+        return ['terlambat', intdiv($selisih, 60)];
+    }
+    return ['hadir', 0];
 }
 
 /**
@@ -235,7 +314,7 @@ function periksa_lokasi($lat, $lng)
  * Simpan foto absen yang diunggah (field "foto") ke uploads/absen/YYYY-MM/.
  * Mengembalikan lokasi file relatif terhadap folder uploads.
  */
-function simpan_foto_absen($idPengguna, $jenis)
+function simpan_foto_absen($idPengguna, $idJadwal)
 {
     $berkas = $_FILES['foto'] ?? null;
     if (!is_array($berkas) || !isset($berkas['error']) || is_array($berkas['error'])
@@ -265,7 +344,7 @@ function simpan_foto_absen($idPengguna, $jenis)
         throw new RuntimeException('Folder foto absen tidak bisa dibuat: ' . $folder);
     }
 
-    $nama = sprintf('%d-%s-%s.%s', $idPengguna, $jenis, bin2hex(random_bytes(16)), $ekstensi[$info[2]]);
+    $nama = sprintf('%d-j%d-%s.%s', $idPengguna, $idJadwal, bin2hex(random_bytes(16)), $ekstensi[$info[2]]);
     if (!@move_uploaded_file($berkas['tmp_name'], $folder . '/' . $nama)) {
         throw new RuntimeException('Foto absen gagal disimpan ke ' . $folder . ' (cek izin tulis folder).');
     }
@@ -284,21 +363,13 @@ function hapus_foto_absen($relatif)
 /** Seluruh pengaturan absen untuk halaman Pengaturan Sistem (admin). */
 function data_pengaturan_absen_admin()
 {
+    $pengaturan = pengaturan_absen();
     $alamat     = db()->query('SELECT alamat_yayasan FROM pengaturan WHERE id_pengaturan = 1')->fetchColumn();
-    $jamKerja   = db()->query(
-        "SELECT unit, jam_masuk, jam_pulang FROM jam_kerja_unit ORDER BY FIELD(unit, 'KB', 'TK', 'SD')"
-    )->fetchAll();
 
     return [
         'alamat_yayasan'      => $alamat === false ? null : $alamat,
-        'toleransi_terlambat' => (int) pengaturan_absen()['toleransi_terlambat'],
+        'toleransi_terlambat' => (int) $pengaturan['toleransi_terlambat'],
+        'buka_absen_menit'    => (int) $pengaturan['buka_absen_menit'],
         'jumlah_lokasi'       => (int) db()->query('SELECT COUNT(*) FROM lokasi_absen WHERE aktif = 1')->fetchColumn(),
-        'jam_kerja'           => array_map(function ($b) {
-            return [
-                'unit'       => $b['unit'],
-                'jam_masuk'  => jam_pendek($b['jam_masuk']),
-                'jam_pulang' => jam_pendek($b['jam_pulang']),
-            ];
-        }, $jamKerja),
     ];
 }

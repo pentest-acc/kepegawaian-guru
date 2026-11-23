@@ -1,9 +1,9 @@
 <?php
 /**
- * GET /api/absen/foto.php?id_absensi=5&jenis=masuk
+ * GET /api/absen/foto.php?id_absensi=5
  * Header: Authorization: Bearer <token>
  *
- * Mengirim file foto absen (masuk/pulang). Foto bersifat pribadi, jadi
+ * Mengirim file foto absen sebuah mapel. Foto bersifat pribadi, jadi
  * folder uploads/absen tidak bisa dibuka langsung; hanya guru pemilik
  * absensi dan admin yang bisa melihat fotonya lewat endpoint ini.
  */
@@ -14,18 +14,14 @@ wajib_method('GET');
 $pengguna = wajib_login();
 
 $idAbsensi = (int) ($_GET['id_absensi'] ?? 0);
-$jenis     = (string) ($_GET['jenis'] ?? 'masuk');
-if (!in_array($jenis, ['masuk', 'pulang'], true)) {
-    kirim_json(422, false, 'Jenis foto harus "masuk" atau "pulang".');
-}
 
-$stmt = db()->prepare('SELECT id_pengguna, foto_masuk, foto_pulang FROM absensi WHERE id_absensi = ?');
+$stmt = db()->prepare('SELECT id_pengguna, foto FROM absensi WHERE id_absensi = ?');
 $stmt->execute([$idAbsensi]);
 $absensi = $stmt->fetch();
 
 // Guru hanya boleh melihat fotonya sendiri
 $boleh = $absensi && ($pengguna['role'] === 'admin' || (int) $absensi['id_pengguna'] === (int) $pengguna['id_pengguna']);
-$relatif = $boleh ? $absensi['foto_' . $jenis] : null;
+$relatif = $boleh ? $absensi['foto'] : null;
 if ($relatif === null) {
     kirim_json(404, false, 'Foto absen tidak ditemukan.');
 }

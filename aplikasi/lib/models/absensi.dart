@@ -485,3 +485,297 @@ String formatJarak(int meter) {
   if (meter < 1000) return '$meter m';
   return '${(meter / 1000).toStringAsFixed(1).replaceAll('.', ',')} km';
 }
+
+// ============================== Riwayat Absen ==============================
+
+/// Posisi [tanggal] terhadap [hariIni] (jam diabaikan).
+HariRelatif hariRelatif(DateTime tanggal, DateTime hariIni) {
+  final a = DateTime(tanggal.year, tanggal.month, tanggal.day);
+  final b = DateTime(hariIni.year, hariIni.month, hariIni.day);
+  if (a.isBefore(b)) return HariRelatif.lalu;
+  return a.isAfter(b) ? HariRelatif.depan : HariRelatif.ini;
+}
+
+/// Satu tanggal di kalender Riwayat Absen.
+class HariRiwayat {
+  const HariRiwayat({
+    required this.tanggal,
+    required this.hari,
+    this.libur,
+    this.cuti,
+    this.mapel = const [],
+  });
+
+  final DateTime tanggal;
+
+  /// "Senin", ..., "Minggu"
+  final String hari;
+
+  /// Keterangan libur ("Hari Minggu", "Hari Raya Natal"), null jika bukan.
+  final String? libur;
+
+  /// cuti / izin / sakit yang sudah disetujui admin pada tanggal ini.
+  final String? cuti;
+
+  /// Mapel hari itu beserta absensinya (urut jam mulai).
+  final List<MapelAbsen> mapel;
+
+  factory HariRiwayat.fromJson(Map<String, dynamic> json) => HariRiwayat(
+    tanggal: DateTime.parse(json['tanggal'] as String),
+    hari: json['hari'] as String,
+    libur: json['libur'] as String?,
+    cuti: json['cuti'] as String?,
+    mapel: [
+      for (final m in json['mapel'] as List? ?? const [])
+        MapelAbsen.fromJson(m as Map<String, dynamic>),
+    ],
+  );
+}
+
+/// Riwayat absen satu bulan (dari `absen/riwayat.php`).
+class RiwayatBulan {
+  const RiwayatBulan({
+    required this.bulan,
+    required this.hariIni,
+    required this.waktuServer,
+    required this.mulai,
+    required this.hari,
+    this.toleransiMenit = 0,
+  });
+
+  /// Tanggal 1 bulan ini.
+  final DateTime bulan;
+
+  /// Tanggal hari ini menurut server.
+  final DateTime hariIni;
+  final DateTime waktuServer;
+
+  /// Tanggal awal riwayat guru (akun dibuat / absen pertama).
+  final DateTime mulai;
+  final int toleransiMenit;
+
+  /// Setiap tanggal dalam bulan ini (tanggal 1 sampai akhir bulan).
+  final List<HariRiwayat> hari;
+
+  /// Jam server (menit sejak 00:00).
+  int get menitSekarang => waktuServer.hour * 60 + waktuServer.minute;
+
+  HariRiwayat? padaTanggal(DateTime tanggal) {
+    for (final h in hari) {
+      if (h.tanggal.year == tanggal.year &&
+          h.tanggal.month == tanggal.month &&
+          h.tanggal.day == tanggal.day) {
+        return h;
+      }
+    }
+    return null;
+  }
+
+  factory RiwayatBulan.fromJson(Map<String, dynamic> json) {
+    final bagian = (json['bulan'] as String).split('-');
+    return RiwayatBulan(
+      bulan: DateTime(int.parse(bagian[0]), int.parse(bagian[1])),
+      hariIni: DateTime.parse(json['hari_ini'] as String),
+      waktuServer: DateTime.parse(json['waktu_server'] as String),
+      mulai: DateTime.parse(json['mulai'] as String),
+      toleransiMenit: json['toleransi_menit'] as int? ?? 0,
+      hari: [
+        for (final h in json['hari'] as List)
+          HariRiwayat.fromJson(h as Map<String, dynamic>),
+      ],
+    );
+  }
+}
+
+/// Warna sebuah tanggal di kalender Riwayat Absen.
+enum KeadaanHari {
+  /// Tidak ada jadwal mengajar.
+  kosong,
+
+  /// Hari Minggu / hari libur.
+  libur,
+
+  /// Hari ini atau hari mendatang yang mapelnya belum selesai semua.
+  menunggu,
+
+  /// Semua mapel diabsen (termasuk yang terlambat). Hijau.
+  hadir,
+
+  /// Sebagian mapel tidak diabsen. Kuning.
+  sebagian,
+
+  /// Izin / sakit / cuti. Merah.
+  izinSakitCuti,
+
+  /// Tidak ada satu pun mapel yang diabsen (atau alpa). Abu-abu.
+  tidakHadir,
+}
+
+/// Keadaan sebuah mapel di Riwayat Absen. Mapel tanpa absensi pada hari
+/// cuti/izin/sakit yang disetujui dianggap cuti/izin/sakit.
+KeadaanMapel keadaanMapelRiwayat(
+  HariRiwayat hari,
+  MapelAbsen mapel, {
+  required DateTime hariIni,
+  int menitSekarang = 0,
+}) {
+  if (mapel.absensi == null && hari.cuti != null) {
+    switch (hari.cuti) {
+      case 'izin':
+        return KeadaanMapel.izin;
+      case 'sakit':
+        return KeadaanMapel.sakit;
+      default:
+        return KeadaanMapel.cuti;
+    }
+  }
+  return keadaanMapel(
+    mapel,
+    hari: hariRelatif(hari.tanggal, hariIni),
+    menitSekarang: menitSekarang,
+  );
+}
+
+bool _mapelHadir(KeadaanMapel k) =>
+    k == KeadaanMapel.hadir ||
+    k == KeadaanMapel.terlambat ||
+    k == KeadaanMapel.lewatJam;
+
+bool _mapelIzin(KeadaanMapel k) =>
+    k == KeadaanMapel.izin || k == KeadaanMapel.sakit || k == KeadaanMapel.cuti;
+
+bool _mapelTidakHadir(KeadaanMapel k) =>
+    k == KeadaanMapel.terlewat || k == KeadaanMapel.alpa;
+
+/// Menentukan warna sebuah tanggal di kalender Riwayat Absen.
+KeadaanHari keadaanHari(
+  HariRiwayat hari, {
+  required DateTime hariIni,
+  int menitSekarang = 0,
+}) {
+  if (hari.mapel.isEmpty) {
+    return hari.libur != null ? KeadaanHari.libur : KeadaanHari.kosong;
+  }
+  var hadir = 0, izin = 0, tidakHadir = 0, menunggu = 0;
+  for (final m in hari.mapel) {
+    final k = keadaanMapelRiwayat(
+      hari,
+      m,
+      hariIni: hariIni,
+      menitSekarang: menitSekarang,
+    );
+    if (_mapelHadir(k)) {
+      hadir++;
+    } else if (_mapelIzin(k)) {
+      izin++;
+    } else if (_mapelTidakHadir(k)) {
+      tidakHadir++;
+    } else {
+      menunggu++;
+    }
+  }
+  if (izin > 0) return KeadaanHari.izinSakitCuti;
+  if (tidakHadir == 0) {
+    return menunggu == 0 ? KeadaanHari.hadir : KeadaanHari.menunggu;
+  }
+  return hadir > 0 ? KeadaanHari.sebagian : KeadaanHari.tidakHadir;
+}
+
+/// Rekap kehadiran satu bulan (hanya sampai hari ini).
+class RekapRiwayat {
+  const RekapRiwayat({
+    this.hariHadir = 0,
+    this.hariSebagian = 0,
+    this.hariIzin = 0,
+    this.hariTidakHadir = 0,
+    this.mapelSelesai = 0,
+    this.mapelDiabsen = 0,
+    this.kaliTerlambat = 0,
+    this.mapelTidakDiabsen = 0,
+    this.menitMengajar = 0,
+  });
+
+  /// Jumlah hari berwarna hijau / kuning / merah / abu-abu.
+  final int hariHadir;
+  final int hariSebagian;
+  final int hariIzin;
+  final int hariTidakHadir;
+
+  /// Mapel yang wajib diabsen sampai saat ini: yang sudah diabsen atau
+  /// sudah lewat tanpa absen (tidak termasuk izin/sakit/cuti dan mapel yang
+  /// belum selesai).
+  final int mapelSelesai;
+
+  /// Mapel yang diabsen guru (hadir + terlambat).
+  final int mapelDiabsen;
+
+  /// Mapel yang diabsen terlambat (termasuk lewat jam pelajaran).
+  final int kaliTerlambat;
+
+  /// Mapel yang tidak diabsen (atau alpa).
+  final int mapelTidakDiabsen;
+
+  /// Total durasi mapel yang diabsen (menit) = jam mengajar.
+  final int menitMengajar;
+}
+
+RekapRiwayat rekapRiwayat(
+  List<HariRiwayat> daftarHari, {
+  required DateTime hariIni,
+  int menitSekarang = 0,
+}) {
+  var hariHadir = 0, hariSebagian = 0, hariIzin = 0, hariTidakHadir = 0;
+  var selesai = 0, diabsen = 0, terlambat = 0, tidakDiabsen = 0, menit = 0;
+  for (final h in daftarHari) {
+    switch (keadaanHari(h, hariIni: hariIni, menitSekarang: menitSekarang)) {
+      case KeadaanHari.hadir:
+        hariHadir++;
+      case KeadaanHari.sebagian:
+        hariSebagian++;
+      case KeadaanHari.izinSakitCuti:
+        hariIzin++;
+      case KeadaanHari.tidakHadir:
+        hariTidakHadir++;
+      case KeadaanHari.kosong:
+      case KeadaanHari.libur:
+      case KeadaanHari.menunggu:
+        break;
+    }
+    for (final m in h.mapel) {
+      final k = keadaanMapelRiwayat(
+        h,
+        m,
+        hariIni: hariIni,
+        menitSekarang: menitSekarang,
+      );
+      if (_mapelHadir(k)) {
+        selesai++;
+        diabsen++;
+        menit += math.max(0, m.menitSelesai - m.menitMulai);
+        if (k != KeadaanMapel.hadir) terlambat++;
+      } else if (_mapelTidakHadir(k)) {
+        selesai++;
+        tidakDiabsen++;
+      }
+    }
+  }
+  return RekapRiwayat(
+    hariHadir: hariHadir,
+    hariSebagian: hariSebagian,
+    hariIzin: hariIzin,
+    hariTidakHadir: hariTidakHadir,
+    mapelSelesai: selesai,
+    mapelDiabsen: diabsen,
+    kaliTerlambat: terlambat,
+    mapelTidakDiabsen: tidakDiabsen,
+    menitMengajar: menit,
+  );
+}
+
+/// 750 -> "12 jam 30 menit", 45 -> "45 menit", 120 -> "2 jam".
+String formatDurasi(int menit) {
+  final jam = menit ~/ 60;
+  final sisa = menit % 60;
+  if (jam == 0) return '$sisa menit';
+  return sisa == 0 ? '$jam jam' : '$jam jam $sisa menit';
+}

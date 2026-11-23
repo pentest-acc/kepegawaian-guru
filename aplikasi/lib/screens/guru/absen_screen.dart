@@ -15,6 +15,7 @@ import '../../widgets/chip_kehadiran.dart';
 import '../../widgets/loading_dots.dart';
 import '../../widgets/tombol_utama.dart';
 import 'kamera_absen_screen.dart';
+import 'riwayat_absen_screen.dart';
 
 /// Halaman Absen guru: absen PER MATA PELAJARAN.
 ///
@@ -238,6 +239,21 @@ class _AbsenScreenState extends State<AbsenScreen> {
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           title: const Text('Absen'),
+          actions: [
+            IconButton(
+              tooltip: 'Riwayat Absen',
+              icon: const Icon(Icons.manage_history_rounded),
+              onPressed: menyiapkan
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => RiwayatAbsenScreen(
+                          absenService: widget.absenService,
+                        ),
+                      ),
+                    ),
+            ),
+          ],
         ),
         body: _isi(),
       ),

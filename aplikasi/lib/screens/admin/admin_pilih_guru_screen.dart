@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../config/app_colors.dart';
 import '../../models/jadwal_mengajar.dart';
+import '../../services/absen_service.dart';
 import '../../services/api_service.dart';
 import '../../services/jadwal_service.dart';
 import '../../widgets/loading_dots.dart';
@@ -11,9 +12,14 @@ import 'admin_jadwal_guru_screen.dart';
 
 /// Admin: memilih guru yang jadwal mengajarnya akan diatur.
 class AdminPilihGuruScreen extends StatefulWidget {
-  const AdminPilihGuruScreen({super.key, this.jadwalService});
+  const AdminPilihGuruScreen({
+    super.key,
+    this.jadwalService,
+    this.absenService,
+  });
 
   final JadwalService? jadwalService;
+  final AbsenService? absenService;
 
   @override
   State<AdminPilihGuruScreen> createState() => _AdminPilihGuruScreenState();
@@ -75,8 +81,11 @@ class _AdminPilihGuruScreenState extends State<AdminPilihGuruScreen> {
   Future<void> _bukaGuru(GuruRingkas guru) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            AdminJadwalGuruScreen(guru: guru, jadwalService: _service),
+        builder: (_) => AdminJadwalGuruScreen(
+          guru: guru,
+          jadwalService: _service,
+          absenService: widget.absenService,
+        ),
       ),
     );
     _muat(); // jumlah jadwal mungkin berubah

@@ -139,28 +139,60 @@ final Uint8List fotoPngKecil = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
 );
 
-/// Contoh absensi seperti yang dikirim backend.
+/// Contoh absensi SATU MAPEL seperti yang dikirim backend.
 Map<String, dynamic> jsonAbsensiContoh({
-  String? masuk = '06:33',
-  String? pulang,
+  int id = 7,
+  int idJadwal = 1,
+  String mapel = 'Bahasa Indonesia',
+  String mulai = '07:30',
+  String selesai = '09:00',
+  String? jamAbsen = '07:25',
   String status = 'hadir',
   int menitTerlambat = 0,
-  int menitPulangAwal = 0,
+  bool lewatJam = false,
+  String? lokasi = 'Gedung SD',
+  String? keterangan,
+  bool diubahAdmin = false,
 }) => {
-  'id_absensi': 7,
-  'tanggal': '2026-11-10',
-  'jam_masuk': masuk,
-  'jam_pulang': pulang,
+  'id_absensi': id,
+  'id_jadwal': idJadwal,
+  'tanggal': '2026-11-23',
+  'mata_pelajaran': mapel,
+  'unit': 'SD',
+  'kelas': '3B',
+  'jam_mulai': mulai,
+  'jam_selesai': selesai,
+  'jam_absen': jamAbsen,
   'status': status,
   'menit_terlambat': menitTerlambat,
-  'menit_pulang_awal': menitPulangAwal,
-  'lokasi_masuk': masuk == null ? null : 'Gedung SD',
-  'jarak_masuk': masuk == null ? null : 24,
-  'lokasi_pulang': pulang == null ? null : 'Gedung SD',
-  'jarak_pulang': pulang == null ? null : 24,
-  'ada_foto_masuk': masuk != null,
-  'ada_foto_pulang': pulang != null,
-  'keterangan': null,
+  'lewat_jam': lewatJam,
+  'lokasi': jamAbsen == null ? null : lokasi,
+  'jarak': jamAbsen == null ? null : 30,
+  'ada_foto': jamAbsen != null,
+  'keterangan': keterangan,
+  'diubah_admin': diubahAdmin,
+};
+
+/// Contoh satu mapel (jadwal) hari itu beserta absensinya.
+Map<String, dynamic> jsonMapelContoh({
+  int idJadwal = 1,
+  String mapel = 'Bahasa Indonesia',
+  String kelas = '3B',
+  String mulai = '07:30',
+  String selesai = '09:00',
+  int? idLokasi = 2,
+  String? lokasi = 'Gedung SD',
+  Map<String, dynamic>? absensi,
+}) => {
+  'id_jadwal': idJadwal,
+  'mata_pelajaran': mapel,
+  'unit': 'SD',
+  'kelas': kelas,
+  'jam_mulai': mulai,
+  'jam_selesai': selesai,
+  'id_lokasi': idLokasi,
+  'lokasi': lokasi,
+  'absensi': absensi,
 };
 
 /// 3 lokasi absen contoh (3 gedung Yayasan yang terpencar).
@@ -194,27 +226,34 @@ const List<Map<String, dynamic>> jsonLokasiContoh = [
   },
 ];
 
-/// Contoh data `absen/hari_ini.php` (Selasa, 10 November 2026, guru SD).
+/// Contoh data `absen/hari_ini.php` (Senin, 23 November 2026, guru SD)
+/// dengan 2 mapel: 07.30-09.00 (Gedung SD) dan 09.30-10.40 (Gedung TK).
 Map<String, dynamic> jsonHariIniContoh({
-  String jam = '06:33:00',
+  String jam = '07:20:00',
   String? libur,
-  Map<String, dynamic>? absensi,
+  List<Map<String, dynamic>>? mapel,
   bool adaLokasi = true,
 }) => {
-  'tanggal': '2026-11-10',
-  'hari': 'Selasa',
-  'waktu_server': '2026-11-10 $jam',
+  'tanggal': '2026-11-23',
+  'hari': 'Senin',
+  'waktu_server': '2026-11-23 $jam',
   'libur': libur,
-  'jam_kerja': {
-    'unit': 'SD',
-    'jam_masuk': '07:00',
-    'jam_pulang': '14:00',
-    'toleransi_menit': 15,
-  },
-  'absen_masuk_mulai': '05:00',
-  'absen_pulang_mulai': '13:00',
+  'toleransi_menit': 15,
+  'buka_absen_menit': 30,
   'lokasi_absen': adaLokasi ? jsonLokasiContoh : const [],
-  'absensi': absensi,
+  'mapel':
+      mapel ??
+      [
+        jsonMapelContoh(),
+        jsonMapelContoh(
+          idJadwal: 2,
+          kelas: '3A',
+          mulai: '09:30',
+          selesai: '10:40',
+          idLokasi: 1,
+          lokasi: 'Gedung TK',
+        ),
+      ],
 };
 
 /// AbsenService yang memakai server palsu.

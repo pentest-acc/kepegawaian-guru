@@ -6,16 +6,17 @@ import '../../services/absen_service.dart';
 import '../../services/api_service.dart';
 import '../../utils/pesan.dart';
 import '../../widgets/input_field.dart';
-import '../../widgets/kotak_jam.dart';
 import '../../widgets/loading_dots.dart';
 import '../../widgets/tombol_utama.dart';
 import 'admin_lokasi_absen_screen.dart';
 
 /// Admin: Pengaturan Sistem bagian absensi.
 ///
-/// - Toleransi terlambat.
-/// - Jam masuk & jam pulang setiap unit (KB/TK/SD).
-/// - Pintasan ke menu Lokasi Absen (titik-titik lokasi diatur di sana).
+/// Jam absen setiap guru mengikuti JADWAL MENGAJARNYA (per mapel), jadwal
+/// diatur di menu Kelola Jadwal Mengajar. Di sini admin mengatur:
+/// - toleransi terlambat (menit setelah jam mulai mapel),
+/// - absen dibuka sekian menit sebelum jam mulai mapel,
+/// - pintasan ke menu Lokasi Absen.
 class PengaturanSistemScreen extends StatefulWidget {
   const PengaturanSistemScreen({super.key, this.absenService});
 
@@ -30,15 +31,12 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
 
   final _formKey = GlobalKey<FormState>();
   final _toleransiController = TextEditingController();
-
-  /// Jam kerja per unit, urut KB, TK, SD.
-  List<JamKerja> _jamKerja = const [];
+  final _bukaController = TextEditingController();
   String? _alamat;
   int _jumlahLokasi = 0;
 
   bool _sedangMemuat = true;
   bool _sedangMenyimpan = false;
-  bool _sudahCobaSimpan = false;
   String? _pesanGagalMuat;
   String? _pesanGagalSimpan;
 
@@ -51,6 +49,7 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
   @override
   void dispose() {
     _toleransiController.dispose();
+    _bukaController.dispose();
     super.dispose();
   }
 
@@ -74,7 +73,7 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
 
   void _isiForm(PengaturanAbsen data) {
     _toleransiController.text = '${data.toleransiTerlambat}';
-    _jamKerja = data.jamKerja;
+    _bukaController.text = '${data.bukaAbsenMenit}';
     _alamat = data.alamatYayasan;
     _jumlahLokasi = data.jumlahLokasi;
   }
@@ -94,57 +93,9 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
     }
   }
 
-  Future<void> _pilihJam(int indeks, {required bool masuk}) async {
-    final jam = _jamKerja[indeks];
-    final teks = masuk ? jam.jamMasuk : jam.jamPulang;
-    final bagian = teks.split(':');
-    final hasil = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(
-        hour: int.parse(bagian[0]),
-        minute: int.parse(bagian[1]),
-      ),
-      helpText: '${masuk ? 'Jam masuk' : 'Jam pulang'} ${jam.unit}',
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
-    );
-    if (hasil == null) return;
-    final baru =
-        '${hasil.hour.toString().padLeft(2, '0')}:'
-        '${hasil.minute.toString().padLeft(2, '0')}';
-    setState(() {
-      _jamKerja = [
-        for (var i = 0; i < _jamKerja.length; i++)
-          i == indeks
-              ? (masuk
-                    ? _jamKerja[i].salin(jamMasuk: baru)
-                    : _jamKerja[i].salin(jamPulang: baru))
-              : _jamKerja[i],
-      ];
-    });
-  }
-
-  String? _kesalahanJam(JamKerja jam) =>
-      jam.jamPulang.compareTo(jam.jamMasuk) <= 0
-      ? 'Jam pulang ${jam.unit} harus setelah jam masuk.'
-      : null;
-
-  /// Jam pulang paling awal = jam tombol absen pulang muncul.
-  String get _jamBukaPulang {
-    if (_jamKerja.isEmpty) return '-';
-    final paling = _jamKerja
-        .map((j) => j.jamPulang)
-        .reduce((a, b) => a.compareTo(b) <= 0 ? a : b);
-    return paling.replaceAll(':', '.');
-  }
-
   Future<void> _simpan() async {
     FocusScope.of(context).unfocus();
-    setState(() => _sudahCobaSimpan = true);
-    final formValid = _formKey.currentState!.validate();
-    if (!formValid || _jamKerja.any((j) => _kesalahanJam(j) != null)) return;
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _sedangMenyimpan = true;
@@ -154,7 +105,7 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
       final tersimpan = await _service.simpanPengaturan(
         PengaturanAbsen(
           toleransiTerlambat: int.parse(_toleransiController.text.trim()),
-          jamKerja: _jamKerja,
+          bukaAbsenMenit: int.parse(_bukaController.text.trim()),
         ),
       );
       if (!mounted) return;
@@ -272,8 +223,25 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
             const SizedBox(height: 26),
             const _JudulBagian(
               ikon: Icons.schedule_rounded,
-              teks: 'Jam Kerja Guru',
+              teks: 'Aturan Absen',
             ),
+            const _KotakInfo(
+              teks:
+                  'Jam absen setiap guru mengikuti jadwal mengajarnya: '
+                  'guru absen di setiap mata pelajaran. Jam masuk = mapel '
+                  'pertama, boleh pulang setelah mapel terakhir selesai. '
+                  'Jadwal diatur di menu Kelola Jadwal Mengajar.',
+            ),
+            const SizedBox(height: 14),
+            InputField(
+              label: 'Absen dibuka sebelum mapel (menit)',
+              hint: '30',
+              controller: _bukaController,
+              ikon: Icons.lock_open_rounded,
+              keyboardType: TextInputType.number,
+              validator: _validasiBulat(0, 180),
+            ),
+            const SizedBox(height: 16),
             InputField(
               label: 'Toleransi terlambat (menit)',
               hint: '15',
@@ -283,55 +251,11 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
               textInputAction: TextInputAction.done,
               validator: _validasiBulat(0, 180),
             ),
-            for (var i = 0; i < _jamKerja.length; i++) ...[
-              const SizedBox(height: 16),
-              Text(
-                'Unit ${_jamKerja[i].unit}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.teks,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: KotakJam(
-                      label: 'Jam masuk',
-                      jam: _keJam(_jamKerja[i].jamMasuk),
-                      onTap: () => _pilihJam(i, masuk: true),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: KotakJam(
-                      label: 'Jam pulang',
-                      jam: _keJam(_jamKerja[i].jamPulang),
-                      onTap: () => _pilihJam(i, masuk: false),
-                    ),
-                  ),
-                ],
-              ),
-              if (_sudahCobaSimpan && _kesalahanJam(_jamKerja[i]) != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, top: 6),
-                  child: Text(
-                    _kesalahanJam(_jamKerja[i])!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.merah,
-                    ),
-                  ),
-                ),
-            ],
-            const SizedBox(height: 16),
-            _KotakInfo(
-              teks:
-                  'Tombol absen pulang muncul untuk semua guru mulai pukul '
-                  '$_jamBukaPulang (jam pulang paling awal). Guru yang absen '
-                  'pulang sebelum jam pulang unitnya tetap bisa, tetapi '
-                  'tercatat "pulang lebih awal" di rekap admin.',
+            const SizedBox(height: 6),
+            const Text(
+              'Lewat dari toleransi tetap bisa absen, tetapi tercatat '
+              'terlambat dan diberi tanda di Monitoring Absensi.',
+              style: TextStyle(fontSize: 12, color: AppColors.teksAbu),
             ),
             if (_pesanGagalSimpan != null) ...[
               const SizedBox(height: 16),
@@ -352,11 +276,6 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
         ),
       ),
     );
-  }
-
-  static TimeOfDay _keJam(String teks) {
-    final bagian = teks.split(':');
-    return TimeOfDay(hour: int.parse(bagian[0]), minute: int.parse(bagian[1]));
   }
 }
 

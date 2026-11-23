@@ -309,3 +309,129 @@ class LokasiPalsu extends LokasiPerangkat {
     return posisi!;
   }
 }
+
+/// Contoh data `absen/riwayat.php` untuk satu bulan. [isi] menimpa data
+/// tanggal tertentu, mis. `{3: {'mapel': [...]}}`. Hari Minggu otomatis libur.
+Map<String, dynamic> jsonRiwayatContoh({
+  int tahun = 2026,
+  int bulan = 11,
+  String hariIni = '2026-11-23',
+  String jam = '10:00:00',
+  String mulai = '2026-10-19',
+  Map<int, Map<String, dynamic>> isi = const {},
+}) {
+  const namaHari = [
+    'Senin',
+    'Selasa',
+    'Rabu',
+    'Kamis',
+    'Jumat',
+    'Sabtu',
+    'Minggu',
+  ];
+  String duaDigit(int n) => n.toString().padLeft(2, '0');
+  final jumlah = DateTime(tahun, bulan + 1, 0).day;
+  return {
+    'bulan': '$tahun-${duaDigit(bulan)}',
+    'hari_ini': hariIni,
+    'waktu_server': '$hariIni $jam',
+    'mulai': mulai,
+    'toleransi_menit': 15,
+    'hari': [
+      for (var d = 1; d <= jumlah; d++)
+        {
+          'tanggal': '$tahun-${duaDigit(bulan)}-${duaDigit(d)}',
+          'hari': namaHari[DateTime(tahun, bulan, d).weekday - 1],
+          'libur': DateTime(tahun, bulan, d).weekday == DateTime.sunday
+              ? 'Hari Minggu'
+              : null,
+          'cuti': null,
+          'mapel': const <Map<String, dynamic>>[],
+          ...?isi[d],
+        },
+    ],
+  };
+}
+
+/// 2 mapel contoh: 07.30-09.00 dan 09.30-10.40, dengan absensinya.
+List<Map<String, dynamic>> duaMapelContoh({
+  Map<String, dynamic>? absen1,
+  Map<String, dynamic>? absen2,
+}) => [
+  jsonMapelContoh(absensi: absen1),
+  jsonMapelContoh(
+    idJadwal: 2,
+    kelas: '3A',
+    mulai: '09:30',
+    selesai: '10:40',
+    absensi: absen2,
+  ),
+];
+
+/// Riwayat November 2026 (hari ini Senin 23 November, pukul 10.00):
+/// - 2 Nov : tidak absen sama sekali (abu-abu)
+/// - 3 Nov : 2 mapel hadir (hijau)
+/// - 4 Nov : sakit, ditandai admin (merah)
+/// - 5 Nov : hadir, 1 mapel terlambat (hijau + titik)
+/// - 9 Nov : 1 dari 2 mapel diabsen (kuning)
+/// - 10 Nov: libur Yayasan
+/// - 12 Nov: cuti disetujui (merah)
+/// - 23 Nov: mapel 1 hadir, mapel 2 sedang berlangsung
+/// - 24 Nov: hari mendatang
+Map<String, dynamic> jsonRiwayatNovember() {
+  Map<String, dynamic> sakit(int id, int idJadwal) => jsonAbsensiContoh(
+    id: id,
+    idJadwal: idJadwal,
+    jamAbsen: null,
+    status: 'sakit',
+    keterangan: 'Sakit, ada surat dokter',
+    diubahAdmin: true,
+  );
+  return jsonRiwayatContoh(
+    isi: {
+      2: {'mapel': duaMapelContoh()},
+      3: {
+        'mapel': duaMapelContoh(
+          absen1: jsonAbsensiContoh(id: 1),
+          absen2: jsonAbsensiContoh(
+            id: 2,
+            idJadwal: 2,
+            mulai: '09:30',
+            selesai: '10:40',
+            jamAbsen: '09:20',
+          ),
+        ),
+      },
+      4: {'mapel': duaMapelContoh(absen1: sakit(3, 1), absen2: sakit(4, 2))},
+      5: {
+        'mapel': duaMapelContoh(
+          absen1: jsonAbsensiContoh(id: 5),
+          absen2: jsonAbsensiContoh(
+            id: 6,
+            idJadwal: 2,
+            mulai: '09:30',
+            selesai: '10:40',
+            jamAbsen: '09:52',
+            status: 'terlambat',
+            menitTerlambat: 22,
+          ),
+        ),
+      },
+      9: {
+        'mapel': duaMapelContoh(
+          absen2: jsonAbsensiContoh(
+            id: 7,
+            idJadwal: 2,
+            mulai: '09:30',
+            selesai: '10:40',
+            jamAbsen: '09:25',
+          ),
+        ),
+      },
+      10: {'libur': 'Libur Yayasan'},
+      12: {'cuti': 'cuti', 'mapel': duaMapelContoh()},
+      23: {'mapel': duaMapelContoh(absen1: jsonAbsensiContoh(id: 8))},
+      24: {'mapel': duaMapelContoh()},
+    },
+  );
+}

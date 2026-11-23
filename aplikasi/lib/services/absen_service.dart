@@ -15,7 +15,7 @@ class HasilAbsen {
 }
 
 /// API absen (per mata pelajaran).
-/// - Guru: [hariIni], [kirimAbsen], [ambilFoto]
+/// - Guru: [hariIni], [kirimAbsen], [ambilFoto], [riwayat]
 /// - Admin: [rekapHarian], [ubahKehadiran], [daftarLokasi], [simpanLokasi],
 ///   [hapusLokasi], [pengaturan], [simpanPengaturan]
 class AbsenService {
@@ -23,6 +23,7 @@ class AbsenService {
 
   final ApiService _api;
   static final _formatTanggal = DateFormat('yyyy-MM-dd');
+  static final _formatBulan = DateFormat('yyyy-MM');
 
   // ------------------------------- Guru -------------------------------
 
@@ -60,6 +61,14 @@ class AbsenService {
   /// Foto absen sebuah mapel (guru pemilik atau admin).
   Future<Uint8List> ambilFoto(int idAbsensi) =>
       _api.ambilBerkas('absen/foto.php?id_absensi=$idAbsensi');
+
+  /// Riwayat absen guru selama satu [bulan] (kalender Riwayat Absen).
+  Future<RiwayatBulan> riwayat(DateTime bulan) async {
+    final respon = await _api.get(
+      'absen/riwayat.php?bulan=${_formatBulan.format(bulan)}',
+    );
+    return RiwayatBulan.fromJson(respon['data'] as Map<String, dynamic>);
+  }
 
   // ------------------------------- Admin ------------------------------
 

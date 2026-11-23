@@ -34,6 +34,7 @@ backend/
 │   ├── absen/
 │   │   ├── hari_ini.php   # mapel hari ini + status absen masing-masing + daftar lokasi
 │   │   ├── kirim.php      # absen satu mapel (foto + GPS)
+│   │   ├── riwayat.php    # riwayat absen satu bulan (kalender Riwayat Absen)
 │   │   └── foto.php       # ambil foto absen (wajib login)
 │   └── admin/             # khusus role admin
 │       ├── guru.php       # daftar guru (untuk memilih guru)
@@ -88,6 +89,7 @@ Alamat dasar (Laragon/XAMPP): `http://localhost/kepegawaian-guru/backend/api`
 | POST | `/admin/jadwal/hapus.php` | Admin | Hapus jadwal: `{"id_jadwal": 5}` |
 | GET | `/absen/hari_ini.php` | Guru | Jam server, libur, toleransi, jam buka absen, daftar lokasi absen aktif, dan **daftar mapel hari ini** beserta absensinya (`mapel`) |
 | POST | `/absen/kirim.php` | Guru | Absen satu mapel, **multipart/form-data**: `id_jadwal`, `foto`, `lat`, `lng`, `lokasi_palsu` (opsional) |
+| GET | `/absen/riwayat.php?bulan=2026-11` | Guru | Riwayat absen satu bulan: setiap tanggal berisi libur, cuti yang disetujui, dan mapel beserta absensinya (default bulan ini) |
 | GET | `/absen/foto.php?id_absensi=5` | Ya | File foto absen. Guru hanya fotonya sendiri, admin semua |
 | GET | `/admin/absensi/harian.php?tanggal=2026-11-23` | Admin | Monitoring: semua guru yang mengajar pada tanggal itu + kehadiran setiap mapelnya (default hari ini) |
 | POST | `/admin/absensi/ubah.php` | Admin | Tandai / ubah kehadiran satu mapel (lihat contoh di bawah) |
@@ -330,6 +332,44 @@ Contoh jawaban gagal:
 - `422` `"Absen Bahasa Indonesia dibuka mulai pukul 07.00."`
 - `422` `"Kamu berada ± 400 m dari lokasi absen terdekat (Gedung KB). Absen hanya bisa dilakukan dalam radius 100 m dari lokasi tersebut."` (dengan `data.lokasi`, `data.jarak` & `data.radius`)
 - `409` `"Kamu sudah absen Bahasa Indonesia pukul 07.25."` / `"Kehadiran mapel ini sudah ditandai admin (izin)."`
+
+### GET `/absen/riwayat.php`
+
+Parameter `bulan` (format `YYYY-MM`, default bulan ini). Contoh jawaban (dipotong):
+
+```json
+{
+  "sukses": true,
+  "pesan": "Riwayat absen 2026-11.",
+  "data": {
+    "bulan": "2026-11",
+    "hari_ini": "2026-11-23",
+    "waktu_server": "2026-11-23 10:00:00",
+    "mulai": "2026-10-19",
+    "toleransi_menit": 15,
+    "hari": [
+      { "tanggal": "2026-11-01", "hari": "Minggu", "libur": "Hari Minggu", "cuti": null, "mapel": [] },
+      {
+        "tanggal": "2026-11-02",
+        "hari": "Senin",
+        "libur": null,
+        "cuti": null,
+        "mapel": [
+          { "id_jadwal": 1, "mata_pelajaran": "Bahasa Indonesia", "jam_mulai": "07:30", "jam_selesai": "09:00", "absensi": { "status": "hadir", "jam_absen": "07:21" } },
+          { "id_jadwal": 2, "mata_pelajaran": "Bahasa Indonesia", "jam_mulai": "09:30", "jam_selesai": "10:40", "absensi": null }
+        ]
+      }
+    ]
+  }
+}
+```
+
+- `hari` berisi **setiap tanggal** dalam bulan itu. Format `mapel` sama seperti di `absen/hari_ini.php`; `absensi: null` = tidak absen (atau belum, untuk hari ini & hari mendatang).
+- Mapel diambil dari jadwal mingguan yang **sudah dibuat** pada tanggal tersebut (dilihat dari `jadwal_mengajar.dibuat_pada`), ditambah absensi yang jadwalnya sudah dihapus/diubah. Hari Minggu & `hari_libur` tidak berisi jadwal.
+- `cuti` = jenis cuti/izin/sakit yang sudah **disetujui** admin (tabel `cuti`) pada tanggal itu.
+- `mulai` = tanggal awal riwayat guru (akun dibuat atau absen pertama), dipakai aplikasi untuk membatasi pilihan tahun ajaran.
+- Penentuan warna kalender (hadir / sebagian / izin / tidak absen) dan rekap bulan dihitung di aplikasi dari data ini.
+- `422` jika format bulan salah.
 
 ### GET `/admin/absensi/harian.php`
 

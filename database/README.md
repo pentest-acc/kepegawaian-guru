@@ -285,6 +285,14 @@ Admin bisa menambah banyak lokasi (mis. 3 gedung Yayasan yang terpencar) di menu
 
 File migrasi hanya untuk database lama yang datanya ingin dipertahankan. Untuk instalasi baru cukup import `db_kepegawaian_guru.sql`.
 
+Sesi 5 (Riwayat Absen) tidak mengubah struktur database: riwayat dibaca dari tabel `absensi`, `jadwal_mengajar` (kolom `dibuat_pada` menentukan sejak kapan sebuah jadwal dihitung), `hari_libur`, dan `cuti` (yang berstatus `disetujui`).
+
+## Data contoh (untuk demo / presentasi)
+
+| File | Isi |
+|---|---|
+| `contoh/riwayat_absen_contoh.sql` | Riwayat absen 36 hari terakhir (sampai kemarin) untuk akun guru demo `@contoh.test`: hadir, terlambat, lewat jam pelajaran, sakit & izin (ditandai admin), sebagian mapel, dan hari tanpa absen. Jadwal akun demo dianggap sudah ada sejak 36 hari lalu. Aman dijalankan ulang; akun lain tidak disentuh. **Jangan** dipakai di database berisi data asli. |
+
 ## Akun demo
 
 | Role | Login (Email / NIY) | Kata sandi |

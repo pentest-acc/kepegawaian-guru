@@ -19,6 +19,7 @@ import 'absen_screen.dart';
 import 'info_detail_screen.dart';
 import 'info_kegiatan_screen.dart';
 import 'jadwal_mengajar_screen.dart';
+import 'riwayat_absen_screen.dart';
 
 /// Data satu tombol menu di Beranda.
 class MenuBeranda {
@@ -201,6 +202,12 @@ class _BerandaScreenState extends State<BerandaScreen> {
       Navigator.of(
         context,
       ).push(MaterialPageRoute<void>(builder: (_) => const AbsenScreen()));
+      return;
+    }
+    if (menu.judul == 'Riwayat Absen') {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const RiwayatAbsenScreen()),
+      );
       return;
     }
     if (menu.judul == 'Jadwal Mengajar') {

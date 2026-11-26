@@ -1,0 +1,4 @@
+# Lampiran cuti/izin (mis. foto surat dokter) bersifat pribadi: tidak boleh
+# dibuka langsung lewat browser. Aplikasi mengambilnya lewat
+# api/cuti/lampiran.php (wajib login, hanya guru pemilik & admin).
+Require all denied

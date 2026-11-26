@@ -5,11 +5,13 @@
  *
  * Monitoring absensi satu hari: setiap guru yang punya jadwal di hari itu,
  * beserta setiap mapelnya dan absensinya (null = belum absen).
+ * 'cuti' = jenis cuti/izin/sakit guru yang disetujui untuk tanggal itu, atau null.
  * Bawaan tanggal = hari ini.
  */
 require_once __DIR__ . '/../../../core/bootstrap.php';
 require_once __DIR__ . '/../../../core/jadwal.php';
 require_once __DIR__ . '/../../../core/absen.php';
+require_once __DIR__ . '/../../../core/cuti.php';
 
 wajib_method('GET');
 wajib_login('admin');
@@ -43,6 +45,7 @@ foreach ($absensi->fetchAll() as $a) {
 }
 
 $idGuru = array_unique(array_merge(array_keys($jadwalGuru), array_keys($absensiGuru)));
+$cuti   = cuti_disetujui_tanggal($tanggal);
 $guru   = [];
 if (!empty($idGuru)) {
     $tanda = implode(',', array_fill(0, count($idGuru), '?'));
@@ -58,6 +61,7 @@ if (!empty($idGuru)) {
             'nomor_induk' => $p['nomor_induk'],
             'nama_tampil' => nama_dengan_gelar($p['nama_lengkap'], $p['gelar']),
             'unit'        => $p['unit'],
+            'cuti'        => $cuti[$id] ?? null,
             'mapel'       => gabung_jadwal_absensi($jadwalGuru[$id] ?? [], $absensiGuru[$id] ?? []),
         ];
     }

@@ -17,7 +17,8 @@ backend/
 │   ├── auth.php       # buat token, cek login (wajib_login), dll.
 │   ├── info.php       # query & format data info kegiatan
 │   ├── jadwal.php     # daftar hari/unit, urutan & format data jadwal mengajar (+ gedung)
-│   └── absen.php      # aturan absen per mapel: status terlambat, libur, jarak GPS, simpan foto
+│   ├── absen.php      # aturan absen per mapel: status terlambat, libur, jarak GPS, simpan foto
+│   └── cuti.php       # aturan cuti/izin/sakit: hari kerja, kuota, bertumpuk, lampiran
 ├── api/
 │   ├── index.php      # cek API & database
 │   ├── auth/
@@ -36,11 +37,21 @@ backend/
 │   │   ├── kirim.php      # absen satu mapel (foto + GPS)
 │   │   ├── riwayat.php    # riwayat absen satu bulan (kalender Riwayat Absen)
 │   │   └── foto.php       # ambil foto absen (wajib login)
+│   ├── cuti/
+│   │   ├── saya.php       # kuota cuti + daftar pengajuan guru yang login
+│   │   ├── hitung.php     # pratinjau: hari kerja, mapel yang ditinggalkan, sisa kuota
+│   │   ├── ajukan.php     # kirim pengajuan (+ foto lampiran)
+│   │   ├── batal.php      # batalkan pengajuan yang masih menunggu
+│   │   └── lampiran.php   # ambil foto lampiran (wajib login)
 │   └── admin/             # khusus role admin
 │       ├── guru.php       # daftar guru (untuk memilih guru)
 │       ├── absensi/
 │       │   ├── harian.php # monitoring absensi semua guru pada satu tanggal
 │       │   └── ubah.php   # admin menandai / mengubah kehadiran satu mapel
+│       ├── cuti/
+│       │   ├── daftar.php # daftar pengajuan per status
+│       │   ├── detail.php # detail + kuota + mapel yang ditinggalkan
+│       │   └── proses.php # setujui / tolak
 │       ├── jadwal/
 │       │   ├── daftar.php
 │       │   ├── simpan.php # tambah / ubah + cek jadwal bentrok
@@ -50,12 +61,13 @@ backend/
 │       │   ├── simpan.php   # tambah / ubah
 │       │   └── hapus.php
 │       └── pengaturan/
-│           ├── absen.php        # toleransi terlambat, absen dibuka sebelum mapel
+│           ├── absen.php        # toleransi terlambat, absen dibuka sebelum mapel, kuota cuti
 │           └── simpan_absen.php
 └── uploads/
     ├── .htaccess      # melarang file PHP dijalankan di folder unggahan
     ├── lampiran/      # file lampiran info kegiatan (PDF, dll.)
-    └── absen/         # foto absen (PRIBADI: tidak bisa dibuka langsung, tidak ikut di-commit)
+    ├── absen/         # foto absen (PRIBADI: tidak bisa dibuka langsung, tidak ikut di-commit)
+    └── cuti/          # foto lampiran cuti, mis. surat dokter (PRIBADI, tidak ikut di-commit)
 ```
 
 ## Format jawaban
@@ -87,17 +99,25 @@ Alamat dasar (Laragon/XAMPP): `http://localhost/kepegawaian-guru/backend/api`
 | GET | `/admin/jadwal/daftar.php?id_pengguna=2` | Admin | Seluruh jadwal mingguan seorang guru |
 | POST | `/admin/jadwal/simpan.php` | Admin | Tambah jadwal, atau ubah jika mengirim `id_jadwal` (termasuk gedung `id_lokasi`) |
 | POST | `/admin/jadwal/hapus.php` | Admin | Hapus jadwal: `{"id_jadwal": 5}` |
-| GET | `/absen/hari_ini.php` | Guru | Jam server, libur, toleransi, jam buka absen, daftar lokasi absen aktif, dan **daftar mapel hari ini** beserta absensinya (`mapel`) |
+| GET | `/absen/hari_ini.php` | Guru | Jam server, libur, cuti/izin/sakit yang disetujui hari ini (`cuti`), toleransi, jam buka absen, daftar lokasi absen aktif, dan **daftar mapel hari ini** beserta absensinya (`mapel`) |
 | POST | `/absen/kirim.php` | Guru | Absen satu mapel, **multipart/form-data**: `id_jadwal`, `foto`, `lat`, `lng`, `lokasi_palsu` (opsional) |
-| GET | `/absen/riwayat.php?bulan=2026-11` | Guru | Riwayat absen satu bulan: setiap tanggal berisi libur, cuti yang disetujui, dan mapel beserta absensinya (default bulan ini) |
+| GET | `/absen/riwayat.php?bulan=2026-11` | Guru / Admin | Riwayat absen satu bulan: setiap tanggal berisi libur, cuti yang disetujui, dan mapel beserta absensinya (default bulan ini). Admin wajib menambah `&id_pengguna=2` |
 | GET | `/absen/foto.php?id_absensi=5` | Ya | File foto absen. Guru hanya fotonya sendiri, admin semua |
 | GET | `/admin/absensi/harian.php?tanggal=2026-11-23` | Admin | Monitoring: semua guru yang mengajar pada tanggal itu + kehadiran setiap mapelnya (default hari ini) |
 | POST | `/admin/absensi/ubah.php` | Admin | Tandai / ubah kehadiran satu mapel (lihat contoh di bawah) |
 | GET | `/admin/lokasi/daftar.php` | Admin | Semua lokasi absen (aktif & nonaktif) beserta nomor urutnya (Lokasi 1, 2, 3, ...) |
 | POST | `/admin/lokasi/simpan.php` | Admin | Tambah lokasi, atau ubah jika mengirim `id_lokasi` (lihat contoh di bawah) |
 | POST | `/admin/lokasi/hapus.php` | Admin | Hapus lokasi: `{"id_lokasi": 2}` (riwayat absen tetap ada) |
-| GET | `/admin/pengaturan/absen.php` | Admin | Pengaturan absen (toleransi terlambat, absen dibuka sebelum mapel, jumlah lokasi aktif) |
-| POST | `/admin/pengaturan/simpan_absen.php` | Admin | Simpan pengaturan absen (lihat contoh di bawah) |
+| GET | `/cuti/saya.php` | Guru | Kuota cuti tahun ini (`?tahun=` opsional) + semua pengajuan milik guru |
+| GET | `/cuti/hitung.php?jenis=cuti&tanggal_mulai=…&tanggal_selesai=…` | Guru | Pratinjau sebelum mengajukan (aturan sama dengan `ajukan.php`, tidak menyimpan apa pun) |
+| POST | `/cuti/ajukan.php` | Guru | Ajukan cuti/izin/sakit, **multipart/form-data**: `jenis`, `tanggal_mulai`, `tanggal_selesai`, `alasan`, `lampiran` (foto, opsional) |
+| POST | `/cuti/batal.php` | Guru | Batalkan pengajuan yang masih menunggu: `{"id_cuti": 5}` |
+| GET | `/cuti/lampiran.php?id_cuti=5` | Ya | File foto lampiran. Guru hanya miliknya sendiri, admin semua |
+| GET | `/admin/cuti/daftar.php?status=menunggu` | Admin | Daftar pengajuan semua guru (`menunggu`, `disetujui`, `ditolak`, `semua`; `cari` opsional) + `jumlah_menunggu` |
+| GET | `/admin/cuti/detail.php?id_cuti=5` | Admin | Detail pengajuan + mapel yang ditinggalkan per tanggal + kuota guru |
+| POST | `/admin/cuti/proses.php` | Admin | Setujui / tolak (lihat contoh di bawah) |
+| GET | `/admin/pengaturan/absen.php` | Admin | Pengaturan absen & cuti (toleransi terlambat, absen dibuka sebelum mapel, kuota cuti tahunan, jumlah lokasi aktif) |
+| POST | `/admin/pengaturan/simpan_absen.php` | Admin | Simpan pengaturan absen & cuti (lihat contoh di bawah) |
 
 Endpoint yang butuh login wajib mengirim header:
 
@@ -246,7 +266,7 @@ Contoh `jadwal/saya.php?dari=2026-10-05&sampai=2026-10-10` (dipotong):
 |---|---|
 | Satu mapel = satu absen | Setiap jadwal mengajar hari itu diabsen sendiri-sendiri (guru dengan 2 mapel absen 2 kali). Satu baris `absensi` per jadwal per tanggal; absen kedua kali dijawab `409`. Tidak ada jam masuk/pulang per unit: jam masuk = mapel pertama, boleh pulang setelah mapel terakhir selesai. |
 | Jam absen | Selalu memakai jam **server** (bukan jam HP). |
-| Hari tanpa absen | Hari Minggu dan tanggal di tabel `hari_libur` (`422`). Jadwal yang bukan hari ini juga ditolak (`422`). |
+| Hari tanpa absen | Hari Minggu dan tanggal di tabel `hari_libur` (`422`). Jadwal yang bukan hari ini juga ditolak (`422`). Guru yang cuti/izin/sakitnya sudah disetujui admin untuk hari itu tidak perlu absen (`409`). |
 | Kapan dibuka | Mulai `buka_absen_menit` (tabel `pengaturan`, bawaan 30) **sebelum** jam mulai mapel, sampai akhir hari. |
 | Terlambat | Lewat dari jam mulai + `toleransi_terlambat` (bawaan 15 menit) = status `terlambat`, `menit_terlambat` dihitung dari jam mulai. **Tetap boleh absen**, bahkan setelah jam pelajarannya selesai (`lewat_jam: true`, ditandai merah di Monitoring Absensi). |
 | Ditandai admin | Admin bisa menandai kehadiran lewat `admin/absensi/ubah.php` (mis. guru lupa absen, izin, sakit, alpa). Jika mapel sudah ditandai admin, guru tidak bisa absen lagi untuk mapel itu (`409`). |
@@ -415,11 +435,92 @@ Atau mengubah absensi yang sudah ada (kirim `id_absensi`):
 ```json
 {
   "toleransi_terlambat": 15,
-  "buka_absen_menit": 30
+  "buka_absen_menit": 30,
+  "kuota_cuti_tahunan": 12
 }
 ```
 
-Keduanya 0–180 menit. Jam masuk/pulang tidak diatur di sini karena mengikuti jadwal mengajar setiap guru. Lokasi absen diatur lewat `admin/lokasi/*.php`.
+Toleransi & jam buka absen 0–180 menit, kuota cuti 0–60 hari kerja per tahun. Jam masuk/pulang tidak diatur di sini karena mengikuti jadwal mengajar setiap guru. Lokasi absen diatur lewat `admin/lokasi/*.php`.
+
+### Aturan cuti / izin / sakit
+
+| Aturan | Penjelasan |
+|---|---|
+| Jenis | `cuti` memotong kuota tahunan (`pengaturan.kuota_cuti_tahunan`, bawaan 12). `izin` & `sakit` tidak memotong kuota. |
+| Jumlah hari | Hari kerja dalam rentang tanggal: hari Minggu & tanggal di `hari_libur` tidak dihitung. Rentang yang hanya berisi hari libur ditolak (`422`). |
+| Kapan boleh diajukan | Cuti: hari ini atau tanggal mendatang. Izin & sakit: boleh menyusul, paling lambat 7 hari setelah tanggalnya. Cuti yang melewati pergantian tahun diajukan terpisah. |
+| Lama | Maksimal 30 hari kalender per pengajuan. |
+| Bertumpuk | Tidak boleh bertumpuk dengan pengajuan lain milik guru yang masih menunggu / sudah disetujui (`409`). |
+| Kuota | Dihitung per tahun kalender: `sisa = kuota - terpakai (disetujui) - diajukan (menunggu)`. Pengajuan cuti melebihi sisa ditolak (`422`), dan admin tidak bisa menyetujui cuti yang membuat kuota terlampaui. |
+| Lampiran | Foto JPG/PNG/WEBP maks. 5 MB, disimpan di `uploads/cuti/TAHUN-BULAN/`. **Wajib** untuk sakit 2 hari kerja atau lebih. |
+| Batal | Guru hanya bisa membatalkan (menghapus) pengajuan yang masih `menunggu`. |
+| Proses admin | Hanya pengajuan `menunggu`. Menolak wajib menulis `catatan` (alasan). |
+| Setelah disetujui | Hari itu guru tidak perlu absen (`absen/kirim.php` menjawab `409`), `absen/hari_ini.php` berisi `"cuti": "sakit"`, mapel di Monitoring & Riwayat Absen dihitung cuti/izin/sakit, kecuali mapel yang tetap diabsen guru. |
+
+### GET `/cuti/hitung.php`
+
+Contoh `cuti/hitung.php?jenis=cuti&tanggal_mulai=2026-12-14&tanggal_selesai=2026-12-15` (dipotong):
+
+```json
+{
+  "sukses": true,
+  "pesan": "2 hari kerja.",
+  "data": {
+    "jenis": "cuti",
+    "tanggal_mulai": "2026-12-14",
+    "tanggal_selesai": "2026-12-15",
+    "jumlah_hari": 2,
+    "jumlah_mapel": 5,
+    "hari": [
+      { "tanggal": "2026-12-14", "hari": "Senin", "mapel": [ { "jam_mulai": "07:30", "jam_selesai": "09:00", "mata_pelajaran": "Bahasa Indonesia", "unit": "SD", "kelas": "3B", "lokasi": "Gedung SD" } ] }
+    ],
+    "kuota": { "tahun": 2026, "kuota": 12, "terpakai": 2, "diajukan": 3, "sisa": 7 },
+    "wajib_lampiran": false
+  }
+}
+```
+
+Contoh jawaban gagal: `422` `"Cuti tidak bisa diajukan untuk tanggal yang sudah lewat. Gunakan izin atau sakit jika keperluannya mendadak."`, `"Sisa kuota cuti tahun 2026 tinggal 7 hari, sedangkan pengajuan ini 9 hari kerja."`, `409` `"Tanggalnya bertumpuk dengan pengajuan Cuti 1 Des 2026 - 2 Des 2026 yang sudah disetujui."`
+
+### POST `/cuti/ajukan.php`
+
+```powershell
+curl.exe -X POST http://localhost/kepegawaian-guru/backend/api/cuti/ajukan.php `
+  -H "Authorization: Bearer <token>" `
+  -F "jenis=sakit" -F "tanggal_mulai=2026-11-19" -F "tanggal_selesai=2026-11-20" `
+  -F "alasan=Demam tinggi, dokter menyarankan istirahat 2 hari." -F "lampiran=@surat_dokter.jpg"
+```
+
+Jawaban `201`: `data.cuti` (pengajuan berstatus `menunggu`) dan `data.kuota`. Format satu pengajuan:
+
+```json
+{
+  "id_cuti": 1,
+  "id_pengguna": 2,
+  "jenis": "sakit",
+  "tanggal_mulai": "2026-11-19",
+  "tanggal_selesai": "2026-11-20",
+  "jumlah_hari": 2,
+  "alasan": "Demam tinggi, dokter menyarankan istirahat 2 hari.",
+  "ada_lampiran": true,
+  "status": "disetujui",
+  "catatan_admin": "Semoga lekas sembuh.",
+  "diproses_oleh": "Admin Yayasan",
+  "diproses_pada": "2026-11-19 07:10:00",
+  "dibuat_pada": "2026-11-18 15:00:00"
+}
+```
+
+Di endpoint admin, setiap pengajuan juga berisi `guru` (`id_pengguna`, `nomor_induk`, `nama_tampil`, `unit`) dan `jumlah_mapel`.
+
+### POST `/admin/cuti/proses.php`
+
+```json
+{ "id_cuti": 5, "keputusan": "disetujui", "catatan": "Semoga lekas sembuh." }
+```
+
+- `keputusan`: `disetujui` atau `ditolak`. `catatan` maks. 255 karakter, **wajib** (min. 5 karakter) jika ditolak.
+- `409` jika pengajuan sudah diproses atau bertumpuk dengan cuti lain yang sudah disetujui; `422` jika kuota cuti guru tidak cukup.
 
 ## Mencoba API tanpa aplikasi
 
@@ -439,7 +540,7 @@ Invoke-RestMethod -Method Post -Uri http://localhost/kepegawaian-guru/backend/ap
 - Semua query memakai *prepared statement* (aman dari SQL Injection).
 - Login dikunci sementara setelah 5 kali salah kata sandi (per akun), mencegah tebak-tebakan kata sandi.
 - Folder `uploads/` tidak bisa menjalankan file PHP (lihat `uploads/.htaccess`), jadi file unggahan tidak bisa dipakai untuk menyusupkan skrip.
-- Folder `uploads/absen/` tertutup sama sekali (`Require all denied`); foto absen hanya bisa diambil lewat `api/absen/foto.php` oleh guru pemiliknya atau admin. Foto absen juga tidak ikut di-commit ke GitHub (lihat `.gitignore`).
+- Folder `uploads/absen/` dan `uploads/cuti/` tertutup sama sekali (`Require all denied`); foto absen dan lampiran cuti hanya bisa diambil lewat `api/absen/foto.php` / `api/cuti/lampiran.php` oleh guru pemiliknya atau admin. Keduanya juga tidak ikut di-commit ke GitHub (lihat `.gitignore`).
 - Saat sudah di hosting: ubah `tampilkan_error` menjadi `false` di `config/app.php` dan pakai user database selain `root`.
 
 ## Konfigurasi database lewat variabel lingkungan

@@ -370,6 +370,7 @@ function data_pengaturan_absen_admin()
         'alamat_yayasan'      => $alamat === false ? null : $alamat,
         'toleransi_terlambat' => (int) $pengaturan['toleransi_terlambat'],
         'buka_absen_menit'    => (int) $pengaturan['buka_absen_menit'],
+        'kuota_cuti_tahunan'  => (int) db()->query('SELECT kuota_cuti_tahunan FROM pengaturan WHERE id_pengaturan = 1')->fetchColumn(),
         'jumlah_lokasi'       => (int) db()->query('SELECT COUNT(*) FROM lokasi_absen WHERE aktif = 1')->fetchColumn(),
     ];
 }

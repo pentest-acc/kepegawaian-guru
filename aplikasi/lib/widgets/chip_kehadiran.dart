@@ -30,6 +30,8 @@ class GayaKehadiran {
     final olehAdmin = absensi != null && absensi.jamAbsen == null
         ? ' (diisi admin)'
         : '';
+    // Izin/sakit/cuti tanpa absensi = dari pengajuan yang disetujui admin
+    final izin = absensi == null ? ' (disetujui)' : olehAdmin;
     switch (keadaan) {
       case KeadaanMapel.belumDibuka:
         return GayaKehadiran(
@@ -68,19 +70,15 @@ class GayaKehadiran {
           Icons.running_with_errors_rounded,
         );
       case KeadaanMapel.izin:
-        return GayaKehadiran('Izin$olehAdmin', biru, Icons.assignment_rounded);
+        return GayaKehadiran('Izin$izin', biru, Icons.assignment_rounded);
       case KeadaanMapel.sakit:
         return GayaKehadiran(
-          'Sakit$olehAdmin',
+          'Sakit$izin',
           biru,
           Icons.medical_services_rounded,
         );
       case KeadaanMapel.cuti:
-        return GayaKehadiran(
-          'Cuti$olehAdmin',
-          biru,
-          Icons.beach_access_rounded,
-        );
+        return GayaKehadiran('Cuti$izin', biru, Icons.beach_access_rounded);
       case KeadaanMapel.alpa:
         return const GayaKehadiran(
           'Alpa (tidak hadir)',

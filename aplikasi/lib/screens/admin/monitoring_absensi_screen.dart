@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 
 import '../../config/app_colors.dart';
 import '../../models/absensi.dart';
+import '../../models/jadwal_mengajar.dart';
 import '../../services/absen_service.dart';
 import '../../services/api_service.dart';
 import '../../utils/format_tanggal.dart';
 import '../../utils/pesan.dart';
 import '../../widgets/chip_kehadiran.dart';
 import '../../widgets/loading_dots.dart';
+import '../guru/riwayat_absen_screen.dart';
 
 /// Admin: Monitoring Absensi per tanggal.
 ///
@@ -95,11 +97,35 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
     return HariRelatif.ini;
   }
 
-  KeadaanMapel _keadaan(RekapHarian rekap, MapelAbsen mapel) => keadaanMapel(
+  KeadaanMapel _keadaan(
+    RekapHarian rekap,
+    KehadiranGuru guru,
+    MapelAbsen mapel,
+  ) => keadaanMapelDenganCuti(
     mapel,
+    guru.cuti,
     hari: _hariRelatif(rekap),
     menitSekarang: rekap.waktuServer.hour * 60 + rekap.waktuServer.minute,
   );
+
+  void _bukaRiwayat(KehadiranGuru guru) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RiwayatAbsenScreen(
+          absenService: _service,
+          guru: GuruRingkas(
+            idPengguna: guru.idPengguna,
+            nomorInduk: guru.nomorInduk,
+            namaTampil: guru.namaTampil,
+            unit: guru.unit,
+            jabatan: 'Guru',
+            status: 'aktif',
+            jumlahJadwal: 0,
+          ),
+        ),
+      ),
+    );
+  }
 
   Future<void> _bukaDetail(KehadiranGuru guru, MapelAbsen mapel) async {
     final berubah = await showModalBottomSheet<bool>(
@@ -113,7 +139,7 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
         mapel: mapel,
         tanggal: _rekap!.tanggal,
         gaya: GayaKehadiran.dari(
-          _keadaan(_rekap!, mapel),
+          _keadaan(_rekap!, guru, mapel),
           absensi: mapel.absensi,
         ),
       ),
@@ -173,7 +199,7 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
     final hitung = <String, int>{};
     for (final g in rekap.guru) {
       for (final m in g.mapel) {
-        final k = _keadaan(rekap, m);
+        final k = _keadaan(rekap, g, m);
         final kelompok = switch (k) {
           KeadaanMapel.hadir => 'hadir',
           KeadaanMapel.terlambat || KeadaanMapel.lewatJam => 'terlambat',
@@ -242,9 +268,13 @@ class _MonitoringAbsensiScreenState extends State<MonitoringAbsensiScreen> {
               guru: guru,
               gayaMapel: [
                 for (final m in guru.mapel)
-                  GayaKehadiran.dari(_keadaan(rekap, m), absensi: m.absensi),
+                  GayaKehadiran.dari(
+                    _keadaan(rekap, guru, m),
+                    absensi: m.absensi,
+                  ),
               ],
               onTapMapel: (mapel) => _bukaDetail(guru, mapel),
+              onRiwayat: () => _bukaRiwayat(guru),
             ),
         ],
       ),
@@ -353,11 +383,13 @@ class _KartuGuru extends StatelessWidget {
     required this.guru,
     required this.gayaMapel,
     required this.onTapMapel,
+    required this.onRiwayat,
   });
 
   final KehadiranGuru guru;
   final List<GayaKehadiran> gayaMapel;
   final ValueChanged<MapelAbsen> onTapMapel;
+  final VoidCallback onRiwayat;
 
   @override
   Widget build(BuildContext context) {
@@ -374,81 +406,112 @@ class _KartuGuru extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: guru.namaTampil,
-                    style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.teks,
-                    ),
+            padding: const EdgeInsets.fromLTRB(14, 4, 0, 0),
+            child: Row(
+              children: [
+                Expanded(child: _namaGuru()),
+                IconButton(
+                  tooltip: 'Riwayat absen ${guru.namaTampil}',
+                  onPressed: onRiwayat,
+                  icon: const Icon(
+                    Icons.manage_history_rounded,
+                    color: AppColors.navyTerang,
                   ),
-                  TextSpan(
-                    text:
-                        '   NIY ${guru.nomorInduk}'
-                        '${guru.unit == null ? '' : ' • ${guru.unit}'}',
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      color: AppColors.teksAbu,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          for (var i = 0; i < guru.mapel.length; i++)
-            InkWell(
-              onTap: () => onTapMapel(guru.mapel[i]),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 4,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: gayaMapel[i].warna,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${guru.mapel[i].jamTampil}  ${guru.mapel[i].mataPelajaran}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.teks,
-                            ),
-                          ),
-                          Text(
-                            'Kelas ${guru.mapel[i].kelas}'
-                            '${guru.mapel[i].lokasi == null ? '' : ' • ${guru.mapel[i].lokasi}'}',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: AppColors.teksAbu,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          ChipKehadiran(gaya: gayaMapel[i]),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.teksAbu,
-                    ),
-                  ],
+          if (guru.cuti != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+              child: Text(
+                '${guru.cuti![0].toUpperCase()}${guru.cuti!.substring(1)} '
+                '(pengajuan disetujui)',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: GayaKehadiran.biru,
                 ),
               ),
             ),
+          for (var i = 0; i < guru.mapel.length; i++)
+            InkWell(
+              onTap: () => onTapMapel(guru.mapel[i]),
+              child: _barisMapel(i),
+            ),
           const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+
+  Widget _namaGuru() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: guru.namaTampil,
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.teks,
+              ),
+            ),
+            TextSpan(
+              text:
+                  '   NIY ${guru.nomorInduk}'
+                  '${guru.unit == null ? '' : ' • ${guru.unit}'}',
+              style: const TextStyle(fontSize: 11.5, color: AppColors.teksAbu),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _barisMapel(int i) {
+    final mapel = guru.mapel[i];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 44,
+            decoration: BoxDecoration(
+              color: gayaMapel[i].warna,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${mapel.jamTampil}  ${mapel.mataPelajaran}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.teks,
+                  ),
+                ),
+                Text(
+                  'Kelas ${mapel.kelas}'
+                  '${mapel.lokasi == null ? '' : ' • ${mapel.lokasi}'}',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.teksAbu,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                ChipKehadiran(gaya: gayaMapel[i]),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.teksAbu),
         ],
       ),
     );

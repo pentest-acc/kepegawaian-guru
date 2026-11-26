@@ -7,10 +7,13 @@
  * aturan absen (toleransi terlambat, jam buka absen), daftar lokasi absen
  * yang aktif, dan DAFTAR MAPEL guru hari ini beserta absensinya masing-masing.
  * Setiap mapel = satu kali absen.
+ * 'cuti' = jenis cuti/izin/sakit yang disetujui admin untuk hari ini (guru
+ * tidak perlu absen), atau null.
  */
 require_once __DIR__ . '/../../core/bootstrap.php';
 require_once __DIR__ . '/../../core/jadwal.php';
 require_once __DIR__ . '/../../core/absen.php';
+require_once __DIR__ . '/../../core/cuti.php';
 
 wajib_method('GET');
 $pengguna = wajib_login('guru');
@@ -32,6 +35,7 @@ kirim_json(200, true, 'Data absen hari ini.', [
     'hari'             => $hari,
     'waktu_server'     => date('Y-m-d H:i:s', $sekarang),
     'libur'            => info_libur($tanggal),
+    'cuti'             => cuti_disetujui_pada($idGuru, $tanggal),
     'toleransi_menit'  => (int) $pengaturan['toleransi_terlambat'],
     'buka_absen_menit' => (int) $pengaturan['buka_absen_menit'],
     'lokasi_absen'     => array_map('data_lokasi_publik', daftar_lokasi_absen(true)),

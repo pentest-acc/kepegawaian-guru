@@ -50,11 +50,12 @@ class ApiService {
   ]) => _kirim('POST', endpoint, body);
 
   /// Kirim isian + satu file (multipart/form-data), mis. foto absen.
+  /// File boleh kosong ([isiBerkas] null) untuk lampiran yang opsional.
   Future<Map<String, dynamic>> kirimBerkas(
     String endpoint, {
     required Map<String, String> isian,
     required String namaField,
-    required List<int> isiBerkas,
+    required List<int>? isiBerkas,
     required String namaBerkas,
   }) async {
     final permintaan = http.MultipartRequest(
@@ -63,9 +64,15 @@ class ApiService {
     );
     permintaan.headers.addAll(await _headerDasar());
     permintaan.fields.addAll(isian);
-    permintaan.files.add(
-      http.MultipartFile.fromBytes(namaField, isiBerkas, filename: namaBerkas),
-    );
+    if (isiBerkas != null) {
+      permintaan.files.add(
+        http.MultipartFile.fromBytes(
+          namaField,
+          isiBerkas,
+          filename: namaBerkas,
+        ),
+      );
+    }
 
     // Unggah foto butuh waktu lebih lama di jaringan yang lambat
     final respon = await _tunggu(

@@ -62,10 +62,12 @@ class AbsenService {
   Future<Uint8List> ambilFoto(int idAbsensi) =>
       _api.ambilBerkas('absen/foto.php?id_absensi=$idAbsensi');
 
-  /// Riwayat absen guru selama satu [bulan] (kalender Riwayat Absen).
-  Future<RiwayatBulan> riwayat(DateTime bulan) async {
+  /// Riwayat absen selama satu [bulan] (kalender Riwayat Absen).
+  /// Guru: miliknya sendiri. Admin: wajib mengisi [idPengguna] guru.
+  Future<RiwayatBulan> riwayat(DateTime bulan, {int? idPengguna}) async {
     final respon = await _api.get(
-      'absen/riwayat.php?bulan=${_formatBulan.format(bulan)}',
+      'absen/riwayat.php?bulan=${_formatBulan.format(bulan)}'
+      '${idPengguna == null ? '' : '&id_pengguna=$idPengguna'}',
     );
     return RiwayatBulan.fromJson(respon['data'] as Map<String, dynamic>);
   }

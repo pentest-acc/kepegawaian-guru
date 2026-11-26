@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../config/app_colors.dart';
 import '../../models/absensi.dart';
+import '../../models/jadwal_mengajar.dart';
 import '../../services/absen_service.dart';
 import '../../services/api_service.dart';
 import '../../utils/format_tanggal.dart';
@@ -56,10 +57,21 @@ class GayaHari {
 /// Halaman Riwayat Absen guru: kalender setiap bulan dalam satu tahun
 /// ajaran (Semester Ganjil Juli-Desember, Semester Genap Januari-Juni).
 /// Tanggal yang sudah diabsen berwarna hijau, izin/sakit/cuti merah.
+///
+/// Admin membuka halaman yang sama dengan [guru] diisi, untuk melihat
+/// riwayat absen guru tersebut.
 class RiwayatAbsenScreen extends StatefulWidget {
-  const RiwayatAbsenScreen({super.key, this.absenService, this.sekarang});
+  const RiwayatAbsenScreen({
+    super.key,
+    this.absenService,
+    this.sekarang,
+    this.guru,
+  });
 
   final AbsenService? absenService;
+
+  /// Untuk admin: guru yang riwayatnya dilihat. null = guru yang login.
+  final GuruRingkas? guru;
 
   /// Sumber waktu "sekarang" sebelum data server didapat (untuk pengujian).
   final DateTime Function()? sekarang;
@@ -135,7 +147,10 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
       _pesanGagal = null;
     });
     try {
-      final data = await _service.riwayat(bulan);
+      final data = await _service.riwayat(
+        bulan,
+        idPengguna: widget.guru?.idPengguna,
+      );
       if (!mounted || nomor != _nomorPermintaan) return;
       setState(() {
         _cache[_kunci(bulan)] = data;
@@ -184,7 +199,22 @@ class _RiwayatAbsenScreenState extends State<RiwayatAbsenScreen> {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: const Text('Riwayat Absen'),
+        title: widget.guru == null
+            ? const Text('Riwayat Absen')
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Riwayat Absen'),
+                  Text(
+                    widget.guru!.namaTampil,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.75),
+                    ),
+                  ),
+                ],
+              ),
         actions: [
           IconButton(
             tooltip: 'Bulan ini',
@@ -1001,11 +1031,7 @@ class _DetailTanggal extends StatelessWidget {
       case KeadaanMapel.sakit:
       case KeadaanMapel.cuti:
         final g = GayaKehadiran.dari(k, absensi: absensi);
-        return GayaKehadiran(
-          absensi == null ? '${g.label} (disetujui admin)' : g.label,
-          GayaHari.izin.teks,
-          g.ikon,
-        );
+        return GayaKehadiran(g.label, GayaHari.izin.teks, g.ikon);
       case KeadaanMapel.terlewat:
         if (relatif == HariRelatif.lalu) {
           return GayaKehadiran(

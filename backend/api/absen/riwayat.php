@@ -1,7 +1,10 @@
 <?php
 /**
- * GET /api/absen/riwayat.php?bulan=2026-11   (khusus guru)
+ * GET /api/absen/riwayat.php?bulan=2026-11
  * Header: Authorization: Bearer <token>
+ *
+ * Guru  : riwayat absennya sendiri.
+ * Admin : riwayat absen seorang guru, wajib menyertakan ?id_pengguna=2
  *
  * Riwayat absen guru selama satu bulan, untuk kalender Riwayat Absen.
  * Setiap tanggal berisi:
@@ -22,8 +25,18 @@ require_once __DIR__ . '/../../core/jadwal.php';
 require_once __DIR__ . '/../../core/absen.php';
 
 wajib_method('GET');
-$pengguna = wajib_login('guru');
-$idGuru   = (int) $pengguna['id_pengguna'];
+$pengguna = wajib_login();
+if ($pengguna['role'] === 'admin') {
+    $stmt = db()->prepare("SELECT * FROM pengguna WHERE id_pengguna = ? AND role = 'guru'");
+    $stmt->execute([(int) ($_GET['id_pengguna'] ?? 0)]);
+    $guru = $stmt->fetch();
+    if (!$guru) {
+        kirim_json(404, false, 'Guru tidak ditemukan.');
+    }
+} else {
+    $guru = $pengguna;
+}
+$idGuru = (int) $guru['id_pengguna'];
 
 $sekarang = time();
 $bulan    = (string) ($_GET['bulan'] ?? date('Y-m', $sekarang));
@@ -67,7 +80,7 @@ $stmt->execute([$idGuru, $akhir, $awal]);
 $daftarCuti = $stmt->fetchAll();
 
 // ---------- Tanggal awal riwayat ----------
-$mulai = substr((string) $pengguna['dibuat_pada'], 0, 10);
+$mulai = substr((string) $guru['dibuat_pada'], 0, 10);
 $stmt  = db()->prepare('SELECT MIN(tanggal) FROM absensi WHERE id_pengguna = ?');
 $stmt->execute([$idGuru]);
 $absenPertama = $stmt->fetchColumn();
@@ -112,6 +125,11 @@ while ($tgl->format('Y-m-d') <= $akhir) {
 
 kirim_json(200, true, 'Riwayat absen ' . $bulan . '.', [
     'bulan'           => $bulan,
+    'guru'            => [
+        'id_pengguna' => $idGuru,
+        'nomor_induk' => $guru['nomor_induk'],
+        'nama_tampil' => nama_dengan_gelar($guru['nama_lengkap'], $guru['gelar']),
+    ],
     'hari_ini'        => date('Y-m-d', $sekarang),
     'waktu_server'    => date('Y-m-d H:i:s', $sekarang),
     'mulai'           => $mulai,

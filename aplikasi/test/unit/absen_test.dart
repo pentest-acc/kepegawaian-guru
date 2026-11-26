@@ -173,11 +173,16 @@ void main() {
       final p = PengaturanAbsen.fromJson({
         'toleransi_terlambat': 10,
         'buka_absen_menit': 45,
+        'kuota_cuti_tahunan': 8,
         'jumlah_lokasi': 3,
         'alamat_yayasan': 'Bekasi',
       });
       expect(p.jumlahLokasi, 3);
-      expect(p.toJson(), {'toleransi_terlambat': 10, 'buka_absen_menit': 45});
+      expect(p.toJson(), {
+        'toleransi_terlambat': 10,
+        'buka_absen_menit': 45,
+        'kuota_cuti_tahunan': 8,
+      });
     });
 
     test('RekapHarian (monitoring admin) membaca data server', () {

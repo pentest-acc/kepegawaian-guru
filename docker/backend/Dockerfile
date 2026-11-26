@@ -16,4 +16,4 @@ RUN printf '<!doctype html><meta charset="utf-8"><title>Kepegawaian Guru</title>
 
 # Folder foto absen harus bisa ditulis Apache (www-data). Di Windows/Mac
 # perintah chown boleh gagal (folder dari laptop sudah bisa ditulis).
-CMD ["bash", "-c", "mkdir -p /var/www/html/kepegawaian-guru/backend/uploads/absen; chown www-data:www-data /var/www/html/kepegawaian-guru/backend/uploads/absen 2>/dev/null || true; exec apache2-foreground"]
+CMD ["bash", "-c", "mkdir -p /var/www/html/kepegawaian-guru/backend/uploads/absen /var/www/html/kepegawaian-guru/backend/uploads/cuti; chown www-data:www-data /var/www/html/kepegawaian-guru/backend/uploads/absen /var/www/html/kepegawaian-guru/backend/uploads/cuti 2>/dev/null || true; exec apache2-foreground"]

@@ -7,7 +7,8 @@
  * diatur di sini hanya:
  * {
  *   "toleransi_terlambat": 15,   (menit setelah jam mulai mapel, 0-180)
- *   "buka_absen_menit": 30       (absen dibuka sekian menit sebelum jam mulai, 0-180)
+ *   "buka_absen_menit": 30,      (absen dibuka sekian menit sebelum jam mulai, 0-180)
+ *   "kuota_cuti_tahunan": 12     (jatah cuti per tahun dalam hari kerja, 0-60)
  * }
  * Lokasi absen diatur terpisah di admin/lokasi/*.php.
  */
@@ -28,11 +29,17 @@ $buka = filter_var($input['buka_absen_menit'] ?? null, FILTER_VALIDATE_INT);
 if ($buka === false || $buka < 0 || $buka > 180) {
     $kesalahan['buka_absen_menit'] = 'Absen dibuka 0 sampai 180 menit sebelum mapel.';
 }
+$kuota = filter_var($input['kuota_cuti_tahunan'] ?? null, FILTER_VALIDATE_INT);
+if ($kuota === false || $kuota < 0 || $kuota > 60) {
+    $kesalahan['kuota_cuti_tahunan'] = 'Kuota cuti 0 sampai 60 hari per tahun.';
+}
 if (!empty($kesalahan)) {
     kirim_json(422, false, reset($kesalahan), ['kesalahan' => $kesalahan]);
 }
 
-db()->prepare('UPDATE pengaturan SET toleransi_terlambat = ?, buka_absen_menit = ? WHERE id_pengaturan = 1')
-    ->execute([$toleransi, $buka]);
+db()->prepare(
+    'UPDATE pengaturan SET toleransi_terlambat = ?, buka_absen_menit = ?, kuota_cuti_tahunan = ?
+      WHERE id_pengaturan = 1'
+)->execute([$toleransi, $buka, $kuota]);
 
-kirim_json(200, true, 'Pengaturan absen disimpan.', data_pengaturan_absen_admin());
+kirim_json(200, true, 'Pengaturan absen & cuti disimpan.', data_pengaturan_absen_admin());

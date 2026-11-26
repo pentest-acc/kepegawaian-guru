@@ -17,9 +17,27 @@ Dikerjakan bertahap, mulai dari dasar seperti programmer pada umumnya.
 | **3** | Jadwal Mengajar dengan **sistem jadwal mingguan** (guru: tab Senin–Jumat + pindah minggu; admin: atur jadwal per guru + cek bentrok), **Docker** | ✅ Selesai |
 | **4** | **Absen per mata pelajaran** dengan kamera langsung + lokasi GPS saat foto diambil, **banyak lokasi absen** (lokasi terdekat terlihat oleh guru), gedung di jadwal mengajar; admin **Monitoring Absensi** (tanda warna & ubah kehadiran), **Lokasi Absen**, **Pengaturan Sistem** | ✅ Selesai |
 | **5** | **Riwayat Absen**: kalender setiap bulan dalam satu tahun ajaran (Semester Ganjil–Genap), hijau = hadir, merah = izin/sakit/cuti, detail absen per tanggal, rekap bulan & jam mengajar | ✅ Selesai |
-| 6 | Cuti / Izin (pengajuan, sisa kuota, status) | ⏳ Berikutnya |
-| 7 | Pengaturan & Profil | ⏳ |
-| 8+ | Halaman Admin: dashboard, data guru, kelola info, persetujuan cuti, laporan PDF/Excel (kelola jadwal sudah dibuat di Sesi 3; monitoring absensi, lokasi & pengaturan absen di Sesi 4) | ⏳ |
+| **6** | **Cuti / Izin / Sakit**: pengajuan dengan pratinjau hari kerja & mapel yang ditinggalkan, kuota cuti tahunan, lampiran foto surat dokter, status; admin **Persetujuan Cuti** & **Riwayat Absen Guru** | ✅ Selesai |
+| 7 | Pengaturan & Profil | ⏳ Berikutnya |
+| 8+ | Halaman Admin: dashboard, data guru, kelola info, laporan PDF/Excel (kelola jadwal sudah dibuat di Sesi 3; monitoring absensi, lokasi & pengaturan absen di Sesi 4; persetujuan cuti & riwayat absen guru di Sesi 6) | ⏳ |
+
+### Yang baru di Sesi 6
+
+- **Cuti / Izin (guru)** — menu **Cuti / Izin** di Beranda.
+  1. Kartu **Kuota Cuti** tahun ini: sisa, terpakai (sudah disetujui), dan yang masih menunggu persetujuan.
+  2. Daftar pengajuan dengan status **Menunggu** (kuning), **Disetujui** (hijau), **Ditolak** (merah) + catatan dari admin. Bisa disaring per status. Ketuk untuk melihat detail & lampiran. Pengajuan yang masih menunggu bisa **dibatalkan**.
+  3. Tombol **Ajukan** → pilih jenis (**Cuti / Izin / Sakit**), tanggal mulai & sampai, lalu aplikasi langsung menghitung **jumlah hari kerja** (Minggu & hari libur tidak dihitung), **mapel yang ditinggalkan** per tanggal, dan **sisa kuota** jika disetujui. Isi alasan, dan lampirkan **foto** (dari kamera atau galeri) bila perlu.
+- **Aturan pengajuan** (dicek di server):
+  - **Cuti** memotong kuota tahunan (bawaan 12 hari kerja, bisa diubah admin) dan hanya untuk hari ini atau tanggal mendatang.
+  - **Izin** dan **sakit** tidak memotong kuota dan boleh diajukan menyusul paling lambat 7 hari.
+  - **Sakit 2 hari atau lebih** wajib melampirkan foto surat dokter.
+  - Satu pengajuan paling lama 30 hari dan tidak boleh bertumpuk dengan pengajuan lain.
+- **Setelah disetujui admin**: di halaman **Absen** guru muncul keterangan "tidak perlu absen" (absen hari itu ditolak). Di **Riwayat Absen**, tanggalnya berwarna merah. Di **Monitoring Absensi**, mapelnya tertulis "Cuti/Izin/Sakit (disetujui)".
+- **Persetujuan Cuti (admin)**: di Dashboard Admin terlihat jumlah pengajuan yang menunggu. Daftar pengajuan bisa disaring (Menunggu / Disetujui / Ditolak / Semua) dan dicari per guru. Halaman detail menampilkan alasan, **foto lampiran** (ketuk untuk memperbesar), **kuota cuti** guru, dan **mapel yang ditinggalkan** per tanggal (untuk mencari guru pengganti). Lalu admin memilih **Setujui** atau **Tolak** (wajib menulis alasan penolakan).
+- **Riwayat Absen Guru (admin)**: kalender riwayat absen setiap guru. Dibuka dari menu **Riwayat Absen Guru** (pilih guru), dari ikon riwayat di setiap guru pada **Monitoring Absensi**, atau dari detail pengajuan cuti.
+- **Pengaturan Sistem**: tambahan **Kuota cuti per tahun**.
+- Lampiran cuti bersifat pribadi: disimpan di `backend/uploads/cuti` (tidak bisa dibuka langsung dan tidak ikut di-commit), hanya bisa dilihat guru pemilik & admin.
+- Sesi 6 **tidak mengubah struktur database**: tabel `cuti` dan kolom `pengaturan.kuota_cuti_tahunan` sudah ada sejak Sesi 1. Ada paket baru `image_picker`, jadi jalankan `flutter pub get`.
 
 ### Yang baru di Sesi 5
 
@@ -34,7 +52,7 @@ Dikerjakan bertahap, mulai dari dasar seperti programmer pada umumnya.
      Angka kecil seperti **2/3** berarti 2 dari 3 mapel diabsen. Titik oranye menandai ada mapel yang terlambat. Hari ini dilingkari biru.
   3. **Ketuk tanggal** untuk melihat detail setiap mapel: jam absen, terlambat berapa menit, lewat jam pelajaran, lokasi absen, catatan admin, atau nama hari liburnya.
   4. **Rekap bulan**: jumlah hari hadir / hadir sebagian / izin-sakit-cuti / tidak absen, jumlah mapel diabsen, berapa kali terlambat, dan **jam mengajar** (total jam mapel yang diabsen).
-- Mapel dihitung mulai tanggal jadwalnya dibuat admin, jadi jadwal baru tidak membuat hari-hari sebelumnya terlihat "tidak absen". Cuti/izin/sakit yang sudah **disetujui** admin otomatis berwarna merah (dipakai oleh fitur Cuti di sesi berikutnya).
+- Mapel dihitung mulai tanggal jadwalnya dibuat admin, jadi jadwal baru tidak membuat hari-hari sebelumnya terlihat "tidak absen". Cuti/izin/sakit yang sudah **disetujui** admin otomatis berwarna merah.
 - **Data contoh** untuk presentasi: `database/contoh/riwayat_absen_contoh.sql` mengisi riwayat absen 36 hari terakhir untuk akun guru demo (lihat bagian *Mencoba Riwayat Absen*).
 - Sesi 5 **tidak mengubah struktur database**.
 
@@ -272,6 +290,12 @@ Mencoba Riwayat Absen:
 1. (Opsional, agar kalender langsung berwarna) Di phpMyAdmin pilih database `db_kepegawaian_guru` → tab **Import** → pilih `database/contoh/riwayat_absen_contoh.sql` → **Import**. File ini mengisi riwayat absen contoh 36 hari terakhir **hanya untuk akun guru demo** (`@contoh.test`): ada hari hadir, terlambat, sakit, izin, dan tidak absen. Jangan dipakai di database yang berisi data asli.
 2. Login sebagai guru → menu **Riwayat Absen** → pilih bulan, lalu ketuk tanggal untuk melihat detailnya.
 
+Mencoba Cuti / Izin:
+
+1. Login sebagai guru → menu **Cuti / Izin** → **Ajukan** → pilih jenis & tanggal → lihat pratinjau hari kerja dan mapel yang ditinggalkan → isi alasan → **Kirim Pengajuan**.
+2. Logout, login sebagai **Admin** → angka "menunggu" muncul di menu **Persetujuan Cuti** → buka pengajuannya → **Setujui** atau **Tolak**.
+3. Login lagi sebagai guru: status berubah. Jika disetujui untuk hari ini, halaman **Absen** menampilkan "tidak perlu absen" dan **Riwayat Absen** menandai tanggalnya merah.
+
 Mencoba sistem jadwal: login sebagai **Admin** → **Kelola Jadwal Mengajar** → pilih guru → ubah/tambah jadwal. Lalu logout, login sebagai guru tersebut → menu **Jadwal Mengajar**: perubahan langsung terlihat, dan berlaku juga di minggu-minggu berikutnya (tekan tombol **›**).
 
 ---
@@ -290,7 +314,7 @@ flutter pub get
 
 > Jika sesi berikutnya mengubah database, akan ada file SQL tambahan + petunjuknya. Jangan import ulang `db_kepegawaian_guru.sql` kalau database sudah berisi data asli, karena file itu menghapus tabel lama.
 >
-> **Sesi 5 (Riwayat Absen) tidak mengubah database.** Cukup pastikan pembaruan database Sesi 4c di bawah sudah pernah dijalankan.
+> **Sesi 5 (Riwayat Absen) dan Sesi 6 (Cuti / Izin) tidak mengubah database.** Cukup pastikan pembaruan database Sesi 4c di bawah sudah pernah dijalankan. Sesi 6 menambah paket `image_picker` (untuk lampiran foto), jadi `flutter pub get` wajib dijalankan, lalu **stop** dan jalankan ulang aplikasi.
 
 ### Pembaruan database Sesi 4c — absen per mapel (wajib, cukup sekali)
 
@@ -454,6 +478,9 @@ flutter test
 | Absen: "Izin kamera ditolak" / layar kamera hitam | Izinkan akses **kamera** untuk aplikasi (Pengaturan HP → Aplikasi → Kepegawaian Guru → Izin), atau di Chrome klik ikon gembok → izinkan **Camera**. Tutup aplikasi lain yang sedang memakai kamera (mis. Zoom/WhatsApp video). |
 | Absen: "Di luar area lokasi absen" padahal sudah di gedung | Titik lokasi gedung tersebut di menu **Lokasi Absen** (admin) belum tepat, radiusnya terlalu kecil, atau lokasinya nonaktif. Atur ulang dengan **Gunakan lokasi saya sekarang** saat berada di gedung itu, atau perbesar radiusnya (mis. 150 m). |
 | Absen: "Foto absen gagal disimpan" | Folder `backend/uploads/absen` harus bisa ditulis oleh Apache. Di Laragon/Windows biasanya otomatis bisa; di Linux jalankan `chmod 777 backend/uploads/absen`. |
+| Cuti: "Lampiran cuti gagal disimpan" / error saat mengirim dengan foto | Sama seperti di atas, untuk folder `backend/uploads/cuti` (di Linux: `chmod 777 backend/uploads/cuti`). |
+| Cuti: tombol **Kamera/Galeri** tidak bereaksi / *MissingPluginException* | Paket `image_picker` baru ditambahkan: jalankan `flutter pub get`, lalu **stop** aplikasi dan jalankan ulang `flutter run` (hot reload tidak cukup). |
+| Cuti: "Sisa kuota cuti ... tinggal X hari" | Kuota tahun itu sudah terpakai / sedang diajukan. Admin bisa menambah kuota di **Pengaturan Sistem → Kuota cuti per tahun**, atau gunakan jenis **izin**. |
 | Jadwal Mengajar guru kosong | Admin belum mengatur jadwal guru tersebut (Kelola Jadwal Mengajar), atau database belum diperbarui ke Sesi 3. |
 | Absen: "Tidak ada jadwal mengajar hari ini" | Absen mengikuti jadwal mengajar. Admin perlu menambahkan jadwal guru untuk hari tersebut di **Kelola Jadwal Mengajar**. Hari Minggu dan hari libur memang tidak ada absen. |
 | Absen: tombol **Absen** belum muncul / "Absen dibuka pukul …" | Absen sebuah mapel baru dibuka beberapa menit sebelum jam mulainya (bawaan 30 menit, bisa diubah admin di **Pengaturan Sistem**). |

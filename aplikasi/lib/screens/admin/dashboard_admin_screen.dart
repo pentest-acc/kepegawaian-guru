@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../config/app_colors.dart';
 import '../../config/app_routes.dart';
+import '../../models/cuti.dart';
 import '../../models/pengguna.dart';
+import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/cuti_service.dart';
 import '../../widgets/loading_overlay.dart';
 import 'admin_lokasi_absen_screen.dart';
 import 'admin_pilih_guru_screen.dart';
 import 'monitoring_absensi_screen.dart';
 import 'pengaturan_sistem_screen.dart';
+import 'persetujuan_cuti_screen.dart';
 
 /// Halaman awal Admin (sementara).
 ///
@@ -19,10 +23,12 @@ class DashboardAdminScreen extends StatefulWidget {
     super.key,
     required this.pengguna,
     this.authService,
+    this.cutiService,
   });
 
   final Pengguna pengguna;
   final AuthService? authService;
+  final CutiService? cutiService;
 
   static const List<(IconData, String)> _rencanaFitur = [
     (Icons.dashboard_rounded, 'Dashboard kehadiran hari ini'),
@@ -30,6 +36,7 @@ class DashboardAdminScreen extends StatefulWidget {
     (Icons.campaign_rounded, 'Kelola Info Kegiatan'),
     (Icons.calendar_month_rounded, 'Kelola Jadwal Mengajar'),
     (Icons.fact_check_rounded, 'Monitoring Absensi'),
+    (Icons.manage_history_rounded, 'Riwayat Absen Guru'),
     (Icons.add_location_alt_rounded, 'Lokasi Absen'),
     (Icons.approval_rounded, 'Persetujuan Cuti'),
     (Icons.print_rounded, 'Laporan (PDF/Excel)'),
@@ -42,7 +49,34 @@ class DashboardAdminScreen extends StatefulWidget {
 
 class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   late final AuthService _auth = widget.authService ?? AuthService();
+  late final CutiService _cuti = widget.cutiService ?? CutiService();
   bool _sedangKeluar = false;
+
+  /// Jumlah pengajuan cuti/izin yang menunggu persetujuan.
+  int _cutiMenunggu = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _muatCutiMenunggu();
+  }
+
+  Future<void> _muatCutiMenunggu() async {
+    try {
+      final data = await _cuti.daftarAdmin(status: StatusCuti.menunggu);
+      if (!mounted) return;
+      setState(() => _cutiMenunggu = data.jumlahMenunggu);
+    } on ApiException {
+      // Lencana jumlah hanya pelengkap; abaikan jika gagal dimuat.
+    }
+  }
+
+  Future<void> _bukaFitur(String nama) async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => _halamanFitur(nama)!));
+    if (nama == 'Persetujuan Cuti') _muatCutiMenunggu();
+  }
 
   /// Halaman untuk fitur admin yang sudah tersedia (null = belum dibuat).
   Widget? _halamanFitur(String nama) {
@@ -51,6 +85,10 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
         return const AdminPilihGuruScreen();
       case 'Monitoring Absensi':
         return const MonitoringAbsensiScreen();
+      case 'Riwayat Absen Guru':
+        return const AdminPilihGuruScreen(tujuan: TujuanPilihGuru.riwayatAbsen);
+      case 'Persetujuan Cuti':
+        return PersetujuanCutiScreen(cutiService: _cuti);
       case 'Lokasi Absen':
         return const AdminLokasiAbsenScreen();
       case 'Pengaturan Sistem':
@@ -135,12 +173,14 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
                   title: Text(nama, style: const TextStyle(fontSize: 14)),
                   onTap: _halamanFitur(nama) == null
                       ? null
-                      : () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => _halamanFitur(nama)!,
-                          ),
-                        ),
-                  trailing: _halamanFitur(nama) == null
+                      : () => _bukaFitur(nama),
+                  trailing: nama == 'Persetujuan Cuti' && _cutiMenunggu > 0
+                      ? Badge(
+                          key: const Key('lencana-cuti'),
+                          backgroundColor: AppColors.merah,
+                          label: Text('$_cutiMenunggu menunggu'),
+                        )
+                      : _halamanFitur(nama) == null
                       ? const Text(
                           'Segera',
                           style: TextStyle(

@@ -9,8 +9,10 @@ import 'package:kepegawaian_guru/screens/guru/kamera_absen_screen.dart';
 import 'package:kepegawaian_guru/services/absen_service.dart';
 import 'package:kepegawaian_guru/services/api_service.dart';
 import 'package:kepegawaian_guru/services/auth_service.dart';
+import 'package:kepegawaian_guru/services/cuti_service.dart';
 import 'package:kepegawaian_guru/services/info_service.dart';
 import 'package:kepegawaian_guru/services/jadwal_service.dart';
+import 'package:kepegawaian_guru/services/pemilih_foto.dart';
 import 'package:kepegawaian_guru/services/perangkat_absen.dart';
 import 'package:kepegawaian_guru/services/session_service.dart';
 
@@ -434,4 +436,97 @@ Map<String, dynamic> jsonRiwayatNovember() {
       24: {'mapel': duaMapelContoh()},
     },
   );
+}
+
+// =============================== Cuti / Izin ===============================
+
+/// Contoh kuota cuti seperti yang dikirim backend.
+Map<String, dynamic> jsonKuotaContoh({
+  int kuota = 12,
+  int terpakai = 3,
+  int diajukan = 2,
+}) => {
+  'tahun': 2026,
+  'kuota': kuota,
+  'terpakai': terpakai,
+  'diajukan': diajukan,
+  'sisa': kuota - terpakai - diajukan,
+};
+
+/// Contoh satu pengajuan cuti / izin / sakit.
+Map<String, dynamic> jsonCutiContoh({
+  int id = 1,
+  String jenis = 'cuti',
+  String mulai = '2026-12-07',
+  String selesai = '2026-12-08',
+  int jumlahHari = 2,
+  String alasan = 'Menghadiri pernikahan saudara di Bandung',
+  String status = 'menunggu',
+  bool adaLampiran = false,
+  String? catatan,
+  bool denganGuru = false,
+  int? jumlahMapel,
+}) => {
+  'id_cuti': id,
+  'id_pengguna': 2,
+  'jenis': jenis,
+  'tanggal_mulai': mulai,
+  'tanggal_selesai': selesai,
+  'jumlah_hari': jumlahHari,
+  'alasan': alasan,
+  'ada_lampiran': adaLampiran,
+  'status': status,
+  'catatan_admin': catatan,
+  'diproses_oleh': status == 'menunggu' ? null : 'Admin Yayasan',
+  'diproses_pada': status == 'menunggu' ? null : '2026-11-25 10:15:00',
+  'dibuat_pada': '2026-11-24 08:30:00',
+  if (denganGuru)
+    'guru': {
+      'id_pengguna': 2,
+      'nomor_induk': '12345678910',
+      'nama_tampil': 'Guru Contoh, S.Pd.',
+      'unit': 'SD',
+    },
+  'jumlah_mapel': ?jumlahMapel,
+};
+
+/// Contoh mapel yang ditinggalkan selama cuti (2 hari kerja).
+List<Map<String, dynamic>> jsonHariCutiContoh() => [
+  {
+    'tanggal': '2026-12-07',
+    'hari': 'Senin',
+    'mapel': [
+      jsonJadwalContoh(),
+      jsonJadwalContoh(id: 2, mulai: '09:30', selesai: '10:40', kelas: '3A'),
+    ],
+  },
+  {
+    'tanggal': '2026-12-08',
+    'hari': 'Selasa',
+    'mapel': [jsonJadwalContoh(id: 4, hari: 'Selasa', mapel: 'Matematika')],
+  },
+];
+
+CutiService buatCutiPalsu(
+  Future<http.Response> Function(http.Request request) server,
+) {
+  final api = ApiService(
+    client: MockClient(server),
+    sesi: SessionService(),
+    baseUrl: 'http://server-tes/api',
+  );
+  return CutiService(api: api);
+}
+
+/// Pemilih foto palsu: langsung mengembalikan foto kecil.
+class PemilihFotoPalsu extends PemilihFoto {
+  PemilihFotoPalsu();
+
+  final List<bool> dariKamera = [];
+
+  @override
+  Future<LampiranCuti?> ambil({required bool dariKamera}) async {
+    this.dariKamera.add(dariKamera);
+    return LampiranCuti(bytes: fotoPngKecil, namaFile: 'surat_dokter.png');
+  }
 }

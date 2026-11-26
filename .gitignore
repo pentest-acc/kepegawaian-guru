@@ -13,3 +13,6 @@ desktop.ini
 backend/uploads/absen/*
 !backend/uploads/absen/.htaccess
 !backend/uploads/absen/index.html
+backend/uploads/cuti/*
+!backend/uploads/cuti/.htaccess
+!backend/uploads/cuti/index.html

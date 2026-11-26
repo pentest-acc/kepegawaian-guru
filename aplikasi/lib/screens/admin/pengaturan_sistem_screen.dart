@@ -32,6 +32,7 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
   final _formKey = GlobalKey<FormState>();
   final _toleransiController = TextEditingController();
   final _bukaController = TextEditingController();
+  final _kuotaController = TextEditingController();
   String? _alamat;
   int _jumlahLokasi = 0;
 
@@ -50,6 +51,7 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
   void dispose() {
     _toleransiController.dispose();
     _bukaController.dispose();
+    _kuotaController.dispose();
     super.dispose();
   }
 
@@ -74,6 +76,7 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
   void _isiForm(PengaturanAbsen data) {
     _toleransiController.text = '${data.toleransiTerlambat}';
     _bukaController.text = '${data.bukaAbsenMenit}';
+    _kuotaController.text = '${data.kuotaCutiTahunan}';
     _alamat = data.alamatYayasan;
     _jumlahLokasi = data.jumlahLokasi;
   }
@@ -106,6 +109,7 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
         PengaturanAbsen(
           toleransiTerlambat: int.parse(_toleransiController.text.trim()),
           bukaAbsenMenit: int.parse(_bukaController.text.trim()),
+          kuotaCutiTahunan: int.parse(_kuotaController.text.trim()),
         ),
       );
       if (!mounted) return;
@@ -113,7 +117,7 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
         _isiForm(tersimpan);
         _sedangMenyimpan = false;
       });
-      tampilkanPesan(context, 'Pengaturan absen disimpan.');
+      tampilkanPesan(context, 'Pengaturan absen & cuti disimpan.');
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -248,13 +252,32 @@ class _PengaturanSistemScreenState extends State<PengaturanSistemScreen> {
               controller: _toleransiController,
               ikon: Icons.timer_outlined,
               keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.done,
               validator: _validasiBulat(0, 180),
             ),
             const SizedBox(height: 6),
             const Text(
               'Lewat dari toleransi tetap bisa absen, tetapi tercatat '
               'terlambat dan diberi tanda di Monitoring Absensi.',
+              style: TextStyle(fontSize: 12, color: AppColors.teksAbu),
+            ),
+            const SizedBox(height: 26),
+            const _JudulBagian(
+              ikon: Icons.beach_access_rounded,
+              teks: 'Aturan Cuti',
+            ),
+            InputField(
+              label: 'Kuota cuti per tahun (hari kerja)',
+              hint: '12',
+              controller: _kuotaController,
+              ikon: Icons.event_available_rounded,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              validator: _validasiBulat(0, 60),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Berlaku untuk setiap guru per tahun kalender. Izin dan sakit '
+              'tidak memotong kuota cuti.',
               style: TextStyle(fontSize: 12, color: AppColors.teksAbu),
             ),
             if (_pesanGagalSimpan != null) ...[

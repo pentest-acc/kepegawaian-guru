@@ -18,6 +18,7 @@
 require_once __DIR__ . '/../../core/bootstrap.php';
 require_once __DIR__ . '/../../core/jadwal.php';
 require_once __DIR__ . '/../../core/absen.php';
+require_once __DIR__ . '/../../core/cuti.php';
 
 wajib_method('POST');
 $pengguna = wajib_login('guru');
@@ -45,6 +46,11 @@ if ($jadwal['hari'] !== $hari) {
 $libur = info_libur($tanggal);
 if ($libur !== null) {
     kirim_json(422, false, 'Hari ini libur (' . $libur . '), tidak perlu absen.');
+}
+$cuti = cuti_disetujui_pada($idGuru, $tanggal);
+if ($cuti !== null) {
+    kirim_json(409, false, 'Hari ini kamu ' . strtolower(label_jenis_cuti($cuti))
+        . ' (sudah disetujui admin), tidak perlu absen.');
 }
 
 $pengaturan = pengaturan_absen();

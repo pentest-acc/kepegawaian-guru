@@ -583,6 +583,7 @@ void main() {
       Map<String, dynamic> data = {
         'toleransi_terlambat': 15,
         'buka_absen_menit': 30,
+        'kuota_cuti_tahunan': 12,
         'jumlah_lokasi': 3,
         'alamat_yayasan': 'PUP Sektor V Blok O2',
       };
@@ -615,6 +616,14 @@ void main() {
 
       await tester.enterText(find.widgetWithText(TextFormField, '500'), '10');
       await tester.enterText(find.widgetWithText(TextFormField, '30'), '45');
+      await tester.enterText(find.widgetWithText(TextFormField, '12'), '99');
+      await tester.ensureVisible(simpan);
+      await tester.tap(simpan);
+      await tester.pumpAndSettle();
+      expect(find.text('Isi angka 0 sampai 60.'), findsOneWidget);
+      expect(permintaan.where((r) => r.method == 'POST'), isEmpty);
+
+      await tester.enterText(find.widgetWithText(TextFormField, '99'), '14');
       await tester.ensureVisible(simpan);
       await tester.tap(simpan);
       await tester.pumpAndSettle();
@@ -622,8 +631,9 @@ void main() {
       expect(jsonDecode(permintaan.last.body), {
         'toleransi_terlambat': 10,
         'buka_absen_menit': 45,
+        'kuota_cuti_tahunan': 14,
       });
-      expect(find.text('Pengaturan absen disimpan.'), findsOneWidget);
+      expect(find.text('Pengaturan absen & cuti disimpan.'), findsOneWidget);
     });
   });
 

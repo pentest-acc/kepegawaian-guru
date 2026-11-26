@@ -228,19 +228,22 @@ Index: `uk_absensi_jadwal_tanggal (id_jadwal, tanggal)`, `idx_absensi_guru_tangg
 
 ### 7. `cuti` — pengajuan cuti/izin/sakit
 
+Dipakai mulai Sesi 6. Guru mengajukan, admin menyetujui / menolak. Hanya jenis `cuti` yang memotong kuota tahunan (`pengaturan.kuota_cuti_tahunan`, dihitung per tahun kalender dari `tanggal_mulai`). Pengajuan yang **disetujui** membuat guru tidak perlu absen pada tanggal-tanggal tersebut, dan mapel yang tidak diabsen tercatat cuti/izin/sakit di Monitoring & Riwayat Absen (tanpa menambah baris di tabel `absensi`).
+
 | Kolom | Tipe | Keterangan |
 |---|---|---|
 | id_cuti | INT, PK | ID pengajuan |
 | id_pengguna | INT, FK → pengguna | Guru yang mengajukan |
 | jenis | ENUM('cuti','izin','sakit') | Jenis pengajuan |
-| tanggal_mulai, tanggal_selesai | DATE | Rentang tanggal |
-| jumlah_hari | SMALLINT | Jumlah hari kerja |
-| alasan | TEXT | Alasan |
-| lampiran | VARCHAR(255) | Misalnya surat dokter |
-| status | ENUM | menunggu, disetujui, ditolak |
-| catatan_admin | VARCHAR(255) | Catatan dari admin |
+| tanggal_mulai, tanggal_selesai | DATE | Rentang tanggal (maks. 30 hari) |
+| jumlah_hari | SMALLINT | Jumlah hari kerja dalam rentang (Minggu & `hari_libur` tidak dihitung), dihitung server saat diajukan |
+| alasan | TEXT | Alasan (10–1000 karakter) |
+| lampiran | VARCHAR(255) | Foto lampiran, mis. surat dokter (path di `backend/uploads/cuti/`, bersifat pribadi). Wajib untuk sakit 2 hari kerja atau lebih |
+| status | ENUM | menunggu, disetujui, ditolak. Pengajuan yang masih menunggu bisa dibatalkan (dihapus) oleh guru |
+| catatan_admin | VARCHAR(255) | Catatan dari admin (wajib jika ditolak) |
 | diproses_oleh | INT, FK → pengguna | Admin yang memproses |
 | diproses_pada | DATETIME | Waktu diproses |
+| dibuat_pada | DATETIME | Waktu diajukan |
 
 ### 8. `hari_libur`
 
@@ -258,7 +261,7 @@ Index: `uk_absensi_jadwal_tanggal (id_jadwal, tanggal)`, `idx_absensi_guru_tangg
 | nama_yayasan, alamat_yayasan | VARCHAR | Identitas Yayasan |
 | toleransi_terlambat | SMALLINT | Menit setelah jam mulai mapel sebelum dianggap terlambat (default 15) |
 | buka_absen_menit | SMALLINT | Absen sebuah mapel dibuka sekian menit sebelum jam mulainya (default 30) |
-| kuota_cuti_tahunan | TINYINT | Jatah cuti per tahun (hari) |
+| kuota_cuti_tahunan | TINYINT | Jatah cuti per tahun dalam hari kerja (default 12, diatur admin di Pengaturan Sistem). Izin & sakit tidak memotong kuota |
 
 ### 10. `lokasi_absen` — titik-titik lokasi absen (gedung)
 
@@ -284,6 +287,8 @@ Admin bisa menambah banyak lokasi (mis. 3 gedung Yayasan yang terpencar) di menu
 | `migrasi/2026-11-23_sesi4c.sql` | Sesi 4c: absen **per mata pelajaran**. Tabel `absensi` lama (masuk/pulang harian) diganti nama menjadi `absensi_lama` dan dibuat tabel `absensi` baru; kolom `jadwal_mengajar.id_lokasi` (gedung) dan `pengaturan.buka_absen_menit`; tabel `jam_kerja_unit` dihapus. Jalankan setelah migrasi Sesi 4b. Aman dijalankan ulang |
 
 File migrasi hanya untuk database lama yang datanya ingin dipertahankan. Untuk instalasi baru cukup import `db_kepegawaian_guru.sql`.
+
+Sesi 6 (Cuti / Izin) juga tidak mengubah struktur database: tabel `cuti` dan kolom `pengaturan.kuota_cuti_tahunan` sudah disiapkan sejak Sesi 1.
 
 Sesi 5 (Riwayat Absen) tidak mengubah struktur database: riwayat dibaca dari tabel `absensi`, `jadwal_mengajar` (kolom `dibuat_pada` menentukan sejak kapan sebuah jadwal dihitung), `hari_libur`, dan `cuti` (yang berstatus `disetujui`).
 

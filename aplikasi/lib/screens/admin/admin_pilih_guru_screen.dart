@@ -8,18 +8,25 @@ import '../../services/absen_service.dart';
 import '../../services/api_service.dart';
 import '../../services/jadwal_service.dart';
 import '../../widgets/loading_dots.dart';
+import '../guru/riwayat_absen_screen.dart';
 import 'admin_jadwal_guru_screen.dart';
 
-/// Admin: memilih guru yang jadwal mengajarnya akan diatur.
+/// Tujuan setelah admin memilih guru.
+enum TujuanPilihGuru { jadwal, riwayatAbsen }
+
+/// Admin: memilih guru, lalu membuka jadwal mengajarnya (bawaan) atau
+/// kalender riwayat absennya.
 class AdminPilihGuruScreen extends StatefulWidget {
   const AdminPilihGuruScreen({
     super.key,
     this.jadwalService,
     this.absenService,
+    this.tujuan = TujuanPilihGuru.jadwal,
   });
 
   final JadwalService? jadwalService;
   final AbsenService? absenService;
+  final TujuanPilihGuru tujuan;
 
   @override
   State<AdminPilihGuruScreen> createState() => _AdminPilihGuruScreenState();
@@ -78,7 +85,18 @@ class _AdminPilihGuruScreenState extends State<AdminPilihGuruScreen> {
     _jedaCari = Timer(const Duration(milliseconds: 400), _muat);
   }
 
+  bool get _modeRiwayat => widget.tujuan == TujuanPilihGuru.riwayatAbsen;
+
   Future<void> _bukaGuru(GuruRingkas guru) async {
+    if (_modeRiwayat) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              RiwayatAbsenScreen(guru: guru, absenService: widget.absenService),
+        ),
+      );
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => AdminJadwalGuruScreen(
@@ -100,7 +118,9 @@ class _AdminPilihGuruScreenState extends State<AdminPilihGuruScreen> {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Kelola Jadwal Mengajar'),
+        title: Text(
+          _modeRiwayat ? 'Riwayat Absen Guru' : 'Kelola Jadwal Mengajar',
+        ),
       ),
       body: Column(
         children: [
@@ -115,12 +135,15 @@ class _AdminPilihGuruScreenState extends State<AdminPilihGuruScreen> {
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
             child: Text(
-              'Pilih guru untuk mengatur jadwal mingguannya. Jadwal otomatis '
-              'berulang setiap minggu.',
-              style: TextStyle(fontSize: 12, color: AppColors.teksAbu),
+              _modeRiwayat
+                  ? 'Pilih guru untuk melihat kalender riwayat absennya, '
+                        'termasuk cuti/izin/sakit yang disetujui.'
+                  : 'Pilih guru untuk mengatur jadwal mingguannya. Jadwal '
+                        'otomatis berulang setiap minggu.',
+              style: const TextStyle(fontSize: 12, color: AppColors.teksAbu),
             ),
           ),
           Expanded(child: _isi()),

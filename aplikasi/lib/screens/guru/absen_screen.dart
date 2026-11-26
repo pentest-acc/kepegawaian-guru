@@ -115,15 +115,18 @@ class _AbsenScreenState extends State<AbsenScreen> {
   // ------------------------------------------------------------------
 
   KeadaanMapel _keadaan(InfoAbsenHariIni info, MapelAbsen mapel) =>
-      keadaanMapel(
+      keadaanMapelDenganCuti(
         mapel,
+        info.cuti,
         hari: HariRelatif.ini,
         menitSekarang: _menitServer,
         bukaAbsenMenit: info.bukaAbsenMenit,
       );
 
   bool _bisaAbsen(InfoAbsenHariIni info, MapelAbsen mapel) {
-    if (info.libur != null || mapel.idJadwal == null) return false;
+    if (info.libur != null || info.cuti != null || mapel.idJadwal == null) {
+      return false;
+    }
     final keadaan = _keadaan(info, mapel);
     return keadaan == KeadaanMapel.belumAbsen ||
         keadaan == KeadaanMapel.terlewat;
@@ -343,6 +346,17 @@ class _AbsenScreenState extends State<AbsenScreen> {
         ),
       ),
       const SizedBox(height: 8),
+      if (info.cuti != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _Catatan(
+            ikon: Icons.beach_access_rounded,
+            warna: GayaKehadiran.biru,
+            teks:
+                'Hari ini kamu ${info.cuti} (sudah disetujui admin), '
+                'jadi tidak perlu absen.',
+          ),
+        ),
       for (var i = 0; i < info.mapel.length; i++)
         _KartuMapel(
           mapel: info.mapel[i],

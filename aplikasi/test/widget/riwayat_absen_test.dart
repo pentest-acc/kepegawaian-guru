@@ -177,7 +177,7 @@ void main() {
       await tester.pumpAndSettle();
       await ketukTanggal(tester, '2026-11-12');
       await gulirSampai(tester, find.text('Cuti disetujui admin.'));
-      expect(find.text('Cuti (disetujui admin)'), findsNWidgets(2));
+      expect(find.text('Cuti (disetujui)'), findsNWidgets(2));
 
       await tester.drag(find.byType(Scrollable).first, const Offset(0, 800));
       await tester.pumpAndSettle();

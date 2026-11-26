@@ -132,13 +132,13 @@ void main() {
     );
 
     // Menu yang belum dibuat membuka halaman "Segera hadir"
-    final menuCuti = find.text('Cuti / Izin');
+    final menuPengaturan = find.text('Pengaturan');
     await tester.drag(find.byType(ListView).first, const Offset(0, -500));
     await tester.pumpAndSettle();
-    await tester.tap(menuCuti);
+    await tester.tap(menuPengaturan);
     await tester.pumpAndSettle();
 
-    expect(find.text('Fitur Cuti / Izin'), findsOneWidget);
+    expect(find.text('Fitur Pengaturan'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Kembali'));
     await tester.pumpAndSettle();

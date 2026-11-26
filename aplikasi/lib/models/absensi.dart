@@ -213,6 +213,33 @@ KeadaanMapel keadaanMapel(
   }
 }
 
+/// Keadaan mapel jika guru sedang [cuti] (jenis cuti/izin/sakit yang sudah
+/// disetujui admin): mapel yang belum diabsen dianggap cuti/izin/sakit.
+KeadaanMapel keadaanMapelDenganCuti(
+  MapelAbsen mapel,
+  String? cuti, {
+  required HariRelatif hari,
+  int menitSekarang = 0,
+  int bukaAbsenMenit = 0,
+}) {
+  if (mapel.absensi == null && cuti != null) {
+    switch (cuti) {
+      case 'izin':
+        return KeadaanMapel.izin;
+      case 'sakit':
+        return KeadaanMapel.sakit;
+      default:
+        return KeadaanMapel.cuti;
+    }
+  }
+  return keadaanMapel(
+    mapel,
+    hari: hari,
+    menitSekarang: menitSekarang,
+    bukaAbsenMenit: bukaAbsenMenit,
+  );
+}
+
 /// Satu titik lokasi absen (mis. salah satu gedung Yayasan) beserta
 /// radiusnya. Admin bisa menambah banyak lokasi.
 class LokasiAbsen {
@@ -308,6 +335,7 @@ class InfoAbsenHariIni {
     required this.toleransiMenit,
     required this.bukaAbsenMenit,
     this.libur,
+    this.cuti,
     this.lokasiAbsen = const [],
     this.mapel = const [],
   });
@@ -315,9 +343,14 @@ class InfoAbsenHariIni {
   final DateTime tanggal;
   final String hari;
 
+  /// Jenis cuti/izin/sakit yang disetujui admin untuk hari ini (guru tidak
+  /// perlu absen), atau null.
+
   /// Jam server saat data diambil. Dipakai agar jam di aplikasi mengikuti
   /// jam server, bukan jam HP.
   final DateTime waktuServer;
+
+  final String? cuti;
 
   /// Keterangan libur (mis. "Hari Minggu"), null jika hari sekolah.
   final String? libur;
@@ -353,6 +386,7 @@ class InfoAbsenHariIni {
         toleransiMenit: toleransiMenit,
         bukaAbsenMenit: bukaAbsenMenit,
         libur: libur,
+        cuti: cuti,
         lokasiAbsen: lokasiAbsen,
         mapel: [
           for (var i = 0; i < mapel.length; i++)
@@ -366,6 +400,7 @@ class InfoAbsenHariIni {
         hari: json['hari'] as String,
         waktuServer: DateTime.parse(json['waktu_server'] as String),
         libur: json['libur'] as String?,
+        cuti: json['cuti'] as String?,
         toleransiMenit: json['toleransi_menit'] as int? ?? 0,
         bukaAbsenMenit: json['buka_absen_menit'] as int? ?? 0,
         lokasiAbsen: [
@@ -387,12 +422,16 @@ class KehadiranGuru {
     required this.nomorInduk,
     required this.mapel,
     this.unit,
+    this.cuti,
   });
 
   final int idPengguna;
   final String namaTampil;
   final String nomorInduk;
   final String? unit;
+
+  /// Jenis cuti/izin/sakit yang disetujui untuk tanggal itu, atau null.
+  final String? cuti;
   final List<MapelAbsen> mapel;
 
   factory KehadiranGuru.fromJson(Map<String, dynamic> json) => KehadiranGuru(
@@ -400,6 +439,7 @@ class KehadiranGuru {
     namaTampil: json['nama_tampil'] as String,
     nomorInduk: json['nomor_induk'] as String,
     unit: json['unit'] as String?,
+    cuti: json['cuti'] as String?,
     mapel: [
       for (final m in json['mapel'] as List)
         MapelAbsen.fromJson(m as Map<String, dynamic>),
@@ -441,12 +481,16 @@ class PengaturanAbsen {
   const PengaturanAbsen({
     required this.toleransiTerlambat,
     required this.bukaAbsenMenit,
+    this.kuotaCutiTahunan = 12,
     this.jumlahLokasi = 0,
     this.alamatYayasan,
   });
 
   final int toleransiTerlambat;
   final int bukaAbsenMenit;
+
+  /// Jatah cuti per tahun (hari kerja). Izin & sakit tidak memotong kuota.
+  final int kuotaCutiTahunan;
 
   /// Jumlah lokasi absen yang aktif.
   final int jumlahLokasi;
@@ -456,6 +500,7 @@ class PengaturanAbsen {
       PengaturanAbsen(
         toleransiTerlambat: json['toleransi_terlambat'] as int,
         bukaAbsenMenit: json['buka_absen_menit'] as int? ?? 30,
+        kuotaCutiTahunan: json['kuota_cuti_tahunan'] as int? ?? 12,
         jumlahLokasi: json['jumlah_lokasi'] as int? ?? 0,
         alamatYayasan: json['alamat_yayasan'] as String?,
       );
@@ -463,6 +508,7 @@ class PengaturanAbsen {
   Map<String, dynamic> toJson() => {
     'toleransi_terlambat': toleransiTerlambat,
     'buka_absen_menit': bukaAbsenMenit,
+    'kuota_cuti_tahunan': kuotaCutiTahunan,
   };
 }
 
@@ -619,18 +665,9 @@ KeadaanMapel keadaanMapelRiwayat(
   required DateTime hariIni,
   int menitSekarang = 0,
 }) {
-  if (mapel.absensi == null && hari.cuti != null) {
-    switch (hari.cuti) {
-      case 'izin':
-        return KeadaanMapel.izin;
-      case 'sakit':
-        return KeadaanMapel.sakit;
-      default:
-        return KeadaanMapel.cuti;
-    }
-  }
-  return keadaanMapel(
+  return keadaanMapelDenganCuti(
     mapel,
+    hari.cuti,
     hari: hariRelatif(hari.tanggal, hariIni),
     menitSekarang: menitSekarang,
   );

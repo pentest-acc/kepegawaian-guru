@@ -16,6 +16,7 @@ import '../../widgets/loading_overlay.dart';
 import '../../widgets/logo_yayasan.dart';
 import '../umum/segera_hadir_screen.dart';
 import 'absen_screen.dart';
+import 'cuti_screen.dart';
 import 'info_detail_screen.dart';
 import 'info_kegiatan_screen.dart';
 import 'jadwal_mengajar_screen.dart';
@@ -202,6 +203,12 @@ class _BerandaScreenState extends State<BerandaScreen> {
       Navigator.of(
         context,
       ).push(MaterialPageRoute<void>(builder: (_) => const AbsenScreen()));
+      return;
+    }
+    if (menu.judul == 'Cuti / Izin') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const CutiScreen()));
       return;
     }
     if (menu.judul == 'Riwayat Absen') {

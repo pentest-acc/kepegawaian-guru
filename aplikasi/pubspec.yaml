@@ -29,6 +29,8 @@ dependencies:
   camera: ">=0.12.0 <0.13.0"
   # Absen: membaca lokasi GPS
   geolocator: ^14.1.2
+  # Cuti/Izin: melampirkan foto surat dokter (dari kamera atau galeri)
+  image_picker: ^1.2.4
 
 dev_dependencies:
   flutter_test:
